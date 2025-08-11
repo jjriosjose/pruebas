@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Gestión de Llamadas - LLAMADAS v7.5.6</title>
+<link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" rel="stylesheet"/>
+<script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+
+// ======================= AGENDA (citas) =======================
+function ensureIdsForRecords(recs){
+  recs.forEach(r=>{ if(!r.__id){ r.__id = (Date.now().toString(36) + Math.random().toString(36).slice(2,8)); } });
+  return recs;
+}
+function saveRecordsToLocal(recs){
+  try{ localStorage.setItem('llamadas_records', JSON.stringify(recs)); }catch(_){}
+}
+function getAgendaData(){
+  const all = loadAllCallRecords().filter(r => r && r.cita_tipo && r.cita_tipo !== 'sin_cita');
+  ensureIdsForRecords(all);
+  return all;
+}
+function openAgenda(){
+  buildAgendaFilters();
+  renderAgenda();
+  const m=document.getElementById('modalAgenda'); m.classList.remove('hidden'); m.style.display='flex'; document.body.classList.add('no-scroll');
+}
+function closeAgenda(){
+  const m=document.getElementById('modalAgenda'); m.classList.add('hidden'); m.style.display='none'; document.body.classList.remove('no-scroll');
+}
+function buildAgendaFilters(){
+  const data = getAgendaData();
+  // vendedor & gestor uniques
+  const uniq = (arr)=> Array.from(new Set(arr.filter(Boolean))).sort((a,b)=> String(a).localeCompare(String(b),'es',{numeric:true}));
+  const vends = uniq(data.map(r=> r.vendedor || ''));
+  const gests = uniq(data.map(r=> r.gestor_servicio || ''));
+  const vendSel = document.getElementById('agVend');
+  const gestSel = document.getElementById('agGest');
+  const statusSel = document.getElementById('agStatus');
+  vendSel.innerHTML = '<option value="">(todos)</option>' + vends.map(v=>`<option>${v}</option>`).join('');
+  gestSel.innerHTML = '<option value="">(todos)</option>' + gests.map(v=>`<option>${v}</option>`).join('');
+  const statuses = ['programada','asistio','no_asistio','reprogramada','cancelada'];
+  statusSel.innerHTML = '<option value="">(todos)</option>' + statuses.map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('');
+}
+function agFilters(){
+  return {
+    desde: document.getElementById('agDesde').value,
+    hasta: document.getElementById('agHasta').value,
+    vend: document.getElementById('agVend').value,
+    gest: document.getElementById('agGest').value,
+    status: document.getElementById('agStatus').value
+  };
+}
+function renderAgenda(){
+  const data = getAgendaData();
+  const f = agFilters();
+  let ds = f.desde? new Date(f.desde+'T00:00:00') : null;
+  let hs = f.hasta? new Date(f.hasta+'T23:59:59') : null;
+  const rows = data.filter(r=>{
+    const d = r.cita_fecha ? new Date(r.cita_fecha + 'T' + (r.cita_hora||'00:00')) : null;
+    let ok = true;
+    if(ds && d && d < ds) ok=false;
+    if(hs && d && d > hs) ok=false;
+    if(f.vend && String(r.vendedor) !== String(f.vend)) ok=false;
+    if(f.gest && String(r.gestor_servicio) !== String(f.gest)) ok=false;
+    if(f.status && String(r.visita_status||'programada') !== String(f.status)) ok=false;
+    return ok;
+  });
+  // Build simple 3 columns: Hoy, Esta semana, Futuras
+  const cols = [
+    {id:'agColHoy', title:'Hoy', filter:(d)=> sameDay(d,new Date())},
+    {id:'agColSem', title:'Esta semana', filter:(d)=> inSameWeek(d,new Date()) && !sameDay(d,new Date())},
+    {id:'agColFut', title:'Futuras', filter:(d)=> d && d > endOfWeek(new Date())}
+  ];
+  const wrap = document.getElementById('agCols');
+  wrap.innerHTML = '';
+  cols.forEach(col=>{
+    const c = document.createElement('div'); c.className='kanban-col'; c.id=col.id;
+    const h = document.createElement('h4'); h.textContent = col.title; c.appendChild(h);
+    wrap.appendChild(c);
+  });
+  rows.forEach(r=>{
+    const d = r.cita_fecha ? new Date(r.cita_fecha + 'T' + (r.cita_hora||'00:00')) : null;
+    const col = cols.find(k=> d && k.filter(d)) || cols[2]; // default Futuras
+    const parent = document.getElementById(col.id);
+    const card = document.createElement('div'); card.className='card-visit';
+    card.innerHTML = `
+      <div class="title"><strong>${r.cliente||''}</strong></div>
+      <div class="muted">${r.cod_empresa||''} • ${r.vendedor||''} • ${r.gestor_servicio||''}</div>
+      <div class="actions" style="margin-top:6px;">
+        <input type="date" class="ag-date" value="${r.cita_fecha||''}">
+        <input type="time" class="ag-time" value="${(r.cita_hora||'').slice(0,5)}">
+        <select class="ag-status">
+          <option value="programada"${(r.visita_status||'programada')==='programada'?' selected':''}>programada</option>
+          <option value="asistio"${r.visita_status==='asistio'?' selected':''}>asistió</option>
+          <option value="no_asistio"${r.visita_status==='no_asistio'?' selected':''}>no asistió</option>
+          <option value="reprogramada"${r.visita_status==='reprogramada'?' selected':''}>reprogramada</option>
+          <option value="cancelada"${r.visita_status==='cancelada'?' selected':''}>cancelada</option>
+        </select>
+        <button class="btn btn-primary ag-save">Guardar</button>
+      </div>
+      <div class="muted" style="margin-top:6px;">${r.observaciones||''}</div>
+    `;
+    // attach handlers
+    card.querySelector('.ag-save').addEventListener('click', ()=>{
+      const newDate = card.querySelector('.ag-date').value;
+      const newTime = card.querySelector('.ag-time').value;
+      const newStatus = card.querySelector('.ag-status').value;
+      applyAgendaUpdate(r.__id, {cita_fecha:newDate, cita_hora:newTime, visita_status:newStatus});
+    });
+    parent.appendChild(card);
+  });
+}
+function applyAgendaUpdate(id, patch){
+  // update both STATE.calls and localStorage records
+  const update = (arr)=>{
+    let changed=false;
+    arr.forEach(r=>{
+      if(!r.__id){ r.__id = (Date.now().toString(36) + Math.random().toString(36).slice(2,8)); }
+      if(r.__id===id){ Object.assign(r, patch); changed=true; }
+    });
+    return changed;
+  };
+  let local=[]; try{ local = JSON.parse(localStorage.getItem('llamadas_records')||'[]'); }catch(_){}
+  const changedLocal = update(local);
+  const changedState = update(STATE.calls);
+  if(changedLocal){ saveRecordsToLocal(local); }
+  renderAgenda();
+  showErr('Cita actualizada');
+}
+// Helpers fechas
+function sameDay(a,b){ return a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); x.setHours(23,59,59,999); return x; }
+function inSameWeek(a,b){ const s=startOfWeek(b), e=endOfWeek(b); return a>=s && a<=e; }
+</script>
+<style>
+    :root{ --bg:#0b1220; --card:#131c2b; --muted:#90a0b7; --text:#e8eef9; --primary:#2dd4bf; --danger:#ef4444; --chip:#1f2a40;}
+    *{box-sizing:border-box;} body{ margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:linear-gradient(180deg,#0b1220 0%,#0e1626 100%); color:var(--text);}
+    a{ color: var(--primary); text-decoration: none;} .container{ max-width:1200px; margin:0 auto; padding:16px;}
+    .app-title{ display:flex; align-items:center; gap:10px; margin:8px 0 16px;} .badge{ padding:2px 8px; border-radius:999px; background:var(--chip); color:#a7b3c8; font-size:12px;}
+    .row{ display:flex; gap:16px; flex-wrap:wrap;} .col{ flex:1 1 320px; min-width:320px;}
+    .card{ background:rgba(19,28,43,0.9); border:1px solid #22304a; border-radius:16px; padding:12px; box-shadow: 0 10px 30px rgba(0,0,0,.25);}
+    .title{ font-size:18px; margin:0 0 6px;} .muted{ color:#90a0b7; font-size:12px;}
+    .grid{ display:grid; gap:8px;} .grid-2{ grid-template-columns: repeat(2, minmax(0,1fr)); } .grid-3{ grid-template-columns: repeat(3, minmax(0,1fr));}
+    .filters{ display:grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap:8px;}
+    select,input[type="text"],input[type="password"],input[type="url"],textarea,input[type="number"],input[type="datetime-local"],input[type="date"],input[type="time"]{ width:100%; padding:10px; border-radius:10px; border:1px solid #314463; background:#0f1726; color:var(--text); outline:none;}
+    textarea{ min-height:96px; resize:vertical; }
+    .btn{ border:1px solid #28405f; background:#0f1726; color:var(--text); padding:8px 10px; border-radius:12px; cursor:pointer; transition:.15s; font-weight:600; font-size:12px;}
+    .btn:hover{ transform: translateY(-1px); } .btn[disabled]{ opacity:.6; cursor:not-allowed;}
+    .btn-primary{ background: linear-gradient(135deg, #1aa27f, #2dd4bf); border:0; color:#072018;} .btn-danger{ background: linear-gradient(135deg, #c2410c, #ef4444); border:0; color:#fff;}
+    .btn-soft{ background:#101a2e; border:1px solid #2c3d5d;} .chip{ padding:2px 8px; font-size:11px; border-radius:999px; background:var(--chip); color:#a7b3c8; border:1px solid #2a3a59;}
+    #map{ width:100%; height:62vh; border-radius:14px; overflow:hidden; border:1px solid #20314f; background:#0b1220;}
+    .table{ width:100%; border-collapse: collapse; font-size:12px; border:1px solid #22304a; border-radius:12px; overflow:hidden;}
+    .table th,.table td{ padding:8px 10px; border-bottom:1px solid #22304a;} .table th{ color:#9fb1cc; background:#0f182a; position:sticky; top:0; z-index:1;}
+    .toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center;} .errbar{ position:fixed; left:8px; right:8px; bottom:8px; background:#2a1220; border:1px solid #6b273d; color:#ffd0df; padding:8px 10px; border-radius:12px; display:none;}
+    .hidden{ display:none !important; } 
+    .modal{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index:10000; backdrop-filter: blur(2px);}
+    .modal.hidden{ display:none !important; }
+    details{ background:#0e1626; border:1px solid #22304a; border-radius:10px; padding:8px; }
+    details > summary{ cursor:pointer; color:#b7c7e3; }
+    .no-scroll{ overflow:hidden; }
+  .modal .card{ max-height:90vh; overflow:auto; }
+
+
+.kanban-col{background:#0f182a;border:1px solid #22304a;border-radius:12px;padding:10px;}
+.kanban-col h4{margin:0 0 6px;font-size:14px;color:#cbd6ec;}
+.card-visit{background:#0e1626;border:1px solid #2b3a58;border-radius:12px;padding:10px;margin-bottom:10px;}
+.card-visit .title{font-size:14px;margin:0 0 6px;}
+.badge-sm{padding:2px 6px;border-radius:999px;background:#1f2a40;color:#a7b3c8;font-size:11px;border:1px solid #2a3a59;}
+.card-visit .row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+.card-visit .actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="app-title">
+<h2 style="margin:0;">Gestión de Llamadas</h2>
+<span class="badge">LLAMADAS v7.5.6</span>
+<span class="badge">Single-File</span>
+</div>
+<!-- LOGIN -->
+<section class="card" id="login">
+<h3 class="title">Ingreso</h3>
+<p class="muted">Conecta tus Google Sheets publicados (CSV) desde ⚙️ <strong>Configurar</strong>. Demo: <code>demo / 1234</code> o <code>vendedor / 1234</code>.</p>
+<div class="grid grid-3">
+<div><label>Usuario</label><input autocomplete="username" id="loginUser" placeholder="ej: rmejia" type="text"/></div>
+<div><label>Contraseña</label><input autocomplete="current-password" id="loginPass" placeholder="********" type="password"/></div>
+<div class="grid"><label> </label><button class="btn btn-primary" id="btnLogin">Entrar</button></div>
+</div>
+<div class="toolbar" style="margin-top:6px;">
+<span class="chip">Modo: <span id="modeLabel">local</span></span>
+<span class="chip">Usuarios: <span id="usersCount">0</span></span>
+<button class="btn btn-soft" id="btnOpenConfig">⚙️ Configurar</button>
+</div>
+</section>
+<!-- APP -->
+<section class="hidden" id="app">
+<div class="card">
+<div class="toolbar">
+<button class="btn btn-soft" id="btnToggleFiltros">☰ Filtros</button>
+<div class="toolbar">
+<button class="btn btn-soft" id="btnAgenda">🗓️ Agenda</button><button class="btn btn-soft" disabled="" id="btnRegistrar">📝 Registrar llamada</button>
+<button class="btn btn-soft" id="btnReporte">📊 Reporte</button>
+<button class="btn btn-soft" disabled="" id="btnFicha">👁️ Ver ficha</button>
+<button class="btn btn-soft" id="btnNuevoCliente">➕ Nuevo cliente</button>
+<button class="btn" id="btnExport">⭳ Exportar CSV</button>
+<button class="btn btn-danger" id="btnRestaurar">⟲ Restaurar</button>
+<button class="btn btn-soft" id="btnOpenConfig2">⚙️ Configurar</button>
+<button class="btn btn-soft" id="btnToggleLegend">👁️ Mostrar leyenda</button>
+</div>
+<div class="toolbar">
+<span class="chip">Clientes: <span id="statTotal">0</span></span>
+<span class="chip">Con coordenadas: <span id="statGeo">0</span></span>
+<span class="chip">Filtrados: <span id="statFilt">0</span></span>
+</div>
+</div>
+<div class="card" id="panelFiltros" style="margin-top:8px;">
+<div class="filters">
+<div><label>Semana</label><select id="fSemana"><option value="">Todas</option></select></div>
+<div><label>Día</label><select id="fDia"><option value="">Todos</option></select></div>
+<div><label>Vendedor</label><select id="fVendedor"><option value="">Todos</option></select></div>
+<div><label>Gestor</label><select id="fGestor"><option value="">Todos</option></select></div>
+<div><label>Empresa</label><select id="fEmpresa"><option value="">Todas</option></select></div>
+<div><label>Buscar</label><input id="fBuscar" placeholder="Nombre o código..." type="text"/></div>
+</div>
+<div class="grid grid-2" style="margin-top:8px;">
+<div><label>Cliente</label><select id="fCliente"><option value="">-- Seleccione --</option></select></div>
+<div class="toolbar hidden" id="legend"></div> <!-- hidden by default -->
+</div>
+</div>
+<div class="row" style="margin-top:8px;">
+<div class="col">
+<div id="map"></div>
+<div class="muted" id="hintZero" style="display:none; margin-top:6px;">No hay clientes con coordenadas en el filtro.</div>
+</div>
+<div class="col card">
+<h3 class="title">Clientes filtrados</h3>
+<div style="max-height:60vh; overflow:auto; border-radius:10px;">
+<table class="table" id="tbl">
+<thead><tr><th>Cod</th><th>Cliente</th><th>Semana</th><th>Día</th><th>Vendedor</th><th>Gestor</th><th>Empresa</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Modal Config -->
+<div aria-modal="true" class="modal hidden" id="modalConfig" role="dialog">
+<div class="card" style="width:min(860px,96vw);">
+<h3 class="title">Configuración - Conectar Google Sheets</h3>
+<p class="muted">Pega las URL publicadas como CSV de tus hojas. <em>Tip:</em> usa “Aplicar ahora” para ver cambios sin recargar.</p>
+<div class="grid grid-2">
+<div>
+<label>Modo</label>
+<select id="cfgMode"><option value="local">local (demo)</option><option value="sheets">sheets (Google)</option></select>
+</div>
+<div>
+<label>Usuarios (CSV)</label>
+<input id="cfgUsuarios" placeholder="https://docs.google.com/spreadsheets/.../pub?output=csv" type="url"/>
+</div>
+<div>
+<label>Clientes (CSV)</label>
+<input id="cfgClientes" placeholder="https://docs.google.com/spreadsheets/.../pub?output=csv" type="url"/>
+</div>
+<div>
+<label>Calendario (CSV)</label>
+<input id="cfgCalendario" placeholder="https://docs.google.com/spreadsheets/.../pub?output=csv" type="url"/>
+</div>
+</div>
+<details style="margin-top:8px;">
+<summary>Filtros avanzados</summary>
+<div class="grid">
+<div>
+<label>Excluir vendedores (uno por línea)</label>
+<textarea id="cfgExcluirVendedores" placeholder="Nombres a excluir..."></textarea>
+</div>
+</div>
+</details>
+<div class="toolbar" style="margin-top:8px;">
+<button class="btn" id="btnCfgProbar">Probar conexión</button>
+<button class="btn btn-primary" id="btnCfgGuardar">Guardar &amp; Recargar</button>
+<button class="btn" id="btnCfgAplicar">Aplicar ahora (sin recargar)</button>
+<button class="btn btn-danger" id="btnCfgLimpiar">Limpiar configuración</button>
+<button class="btn btn-soft" id="btnCfgCerrar">Cerrar</button>
+</div>
+<p class="muted" id="cfgStatus" style="margin-top:6px;"></p>
+</div>
+</div>
+<!-- Modal Registrar Llamada -->
+<div aria-modal="true" class="modal hidden" id="modalLlamada" role="dialog">
+<div class="card" style="width:min(900px,96vw);">
+<h3 class="title">📞 Registrar llamada</h3>
+<div class="grid grid-2">
+<div>
+<label>Cliente</label>
+<input id="callCliente" readonly="" type="text"/>
+</div>
+<div>
+<label>Cod Empresa</label>
+<input id="callCodEmpresa" readonly="" type="text"/>
+</div>
+<div>
+<label>Vendedor</label>
+<input id="callVendedor" readonly="" type="text"/>
+</div>
+<div>
+<label>gestor_servicio</label>
+<input id="callGestor" readonly="" type="text"/>
+</div>
+<div>
+<label>Fecha y hora</label>
+<input id="callFechaHora" type="datetime-local"/>
+</div>
+<div>
+<label>Resultado</label>
+<select id="callResultado">
+<option value="Exitosa">Exitosa</option>
+<option value="No contesta">No contesta</option>
+<option value="Ocupado">Ocupado</option>
+<option value="Número equivocado">Número equivocado</option>
+<option value="Rechazada">Rechazada</option>
+</select>
+</div>
+<div>
+<label>Duración (seg.)</label>
+<input id="callDuracion" min="0" step="1" type="number" value="0"/>
+</div>
+<div></div>
+<div class="grid" style="grid-column:1/-1;">
+<label>Observaciones</label>
+<textarea id="callObs" placeholder="Notas de la llamada..."></textarea>
+</div>
+</div>
+<details style="margin-top:8px;">
+<summary>Contacto del cliente</summary>
+<div class="grid grid-3">
+<div>
+<label>Teléfono 1</label>
+<input id="callTelefono1" readonly="" type="text"/>
+</div>
+<div>
+<label>Celular</label>
+<input id="callCelular" readonly="" type="text"/>
+</div>
+<div>
+<label>Provincia</label>
+<input id="callProvincia" readonly="" type="text"/>
+</div>
+</div>
+</details>
+<fieldset class="card" style="margin-top:10px;">
+<legend class="muted">Cita</legend>
+<div class="grid grid-3">
+<div>
+<label>Tipo</label>
+<select id="callCitaTipo">
+<option value="sin_cita">(sin cita)</option>
+<option value="cita_showroom">Cita Showroom</option>
+<option value="no_cita">No cita</option>
+</select>
+</div>
+<div>
+<label>Fecha</label>
+<input id="callCitaFecha" type="date"/>
+</div>
+<div>
+<label>Hora</label>
+<input id="callCitaHora" type="time"/>
+</div>
+</div>
+</fieldset>
+<div class="toolbar" style="justify-content:flex-end; margin-top:10px;">
+<button class="btn btn-soft" id="btnCallCancelar">Cancelar</button>
+<button class="btn btn-primary" id="btnCallGuardar">Guardar</button>
+</div>
+<p class="muted" id="callStatus" style="margin-top:6px;"></p>
+</div>
+</div>
+<!-- Modal Reporte -->
+<div aria-modal="true" class="modal hidden" id="modalReporte" role="dialog">
+<div class="card" style="width:min(1100px,96vw);">
+<h3 class="title">📊 Reporte de llamadas</h3>
+<div class="grid grid-3">
+<div>
+<label>Desde</label>
+<input id="repDesde" placeholder="dd/mm/aaaa" type="date"/>
+</div>
+<div>
+<label>Hasta</label>
+<input id="repHasta" placeholder="dd/mm/aaaa" type="date"/>
+</div>
+<div>
+<label>Vendedor</label>
+<input id="repVendedor" placeholder="(todos)" type="text"/>
+</div>
+<div>
+<label>Gestor</label>
+<input id="repGestor" placeholder="(todos)" type="text"/>
+</div>
+<div>
+<label>Resultado</label>
+<select id="repResultado">
+<option value="">(todos)</option>
+<option>Exitosa</option><option>No contesta</option><option>Ocupado</option>
+<option>Número equivocado</option><option>Rechazada</option>
+</select>
+</div>
+<div>
+<label> </label>
+<button class="btn" id="repExport">⬇ Exportar CSV</button>
+</div>
+</div>
+<div style="margin-top:8px;max-height:60vh;overflow:auto;border-radius:10px;">
+<table class="table" id="repTbl">
+<thead><tr>
+<th>Fecha/Hora</th><th>Cliente</th><th>Cod</th><th>Vendedor</th><th>Gestor</th>
+<th>Resultado</th><th>Duración</th><th>Obs</th><th>Provincia</th><th>Tel1</th><th>Cel</th><th>Cita</th>
+</tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<div class="toolbar" style="justify-content:flex-end; margin-top:10px;">
+<button class="btn btn-soft" id="btnRepCerrar">Cerrar</button>
+</div>
+</div>
+</div>
+<div aria-modal="true" class="modal hidden" id="modalAgenda" role="dialog"><div class="card" style="width:min(1100px,96vw);"><h3 class="title">🗓️ Visitas programadas</h3><div class="grid grid-3"><div><label>Desde</label><input id="agDesde" type="date"/></div><div><label>Hasta</label><input id="agHasta" type="date"/></div><div><label>Vendedor</label><select id="agVend"><option value="">(todos)</option></select></div><div><label>Gestor</label><select id="agGest"><option value="">(todos)</option></select></div><div><label>Estatus visita</label><select id="agStatus"><option value="">(todos)</option></select></div></div><div id="agCols" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px;max-height:60vh;overflow:auto;"></div><div class="toolbar" style="justify-content:flex-end;margin-top:10px;"><button class="btn" id="agExport">⬇ Exportar CSV</button><button class="btn btn-soft" id="btnAgCerrar">Cerrar</button></div></div></div><div class="errbar" id="errbar"></div>
+<script>
+// ======================= CONFIG =======================
+const DEFAULT_CONFIG = { 
+  mode:'local', 
+  sheets:{usuarios:'', clientes:'', calendario:''},
+  excluirVendedores: [
+    "CESAR CABA",
+    "DIOGENES ALCANTARA",
+    "EDUARD CEBALLOS",
+    "EVELYN OCHOA",
+    "JOSE",
+    "JOSE ALTAGRACIA SANCHEZ",
+    "JOSE DE LA CRUZ",
+    "KARAKA INTERNO",
+    "LEGAL",
+    "LUISVI RAMOS",
+    "MANUEL",
+    "MANUEL EMILIO ALCANTARA",
+    "MOISES FELIZ",
+    "NO ASIGNADO",
+    "RENDY ALBERTO MEJIA GUERRERO",
+    "ROLANDO ANT. SEBELEN",
+    "ROSMERY RIVAS",
+    "RYAN",
+    "RYAN BAEZ",
+    "SIN ASIGNAR",
+    "VICTOR PEREZ",
+    "YUKI"
+  ] // case/accents-insensitive
+};
+let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+// ======================= DEMO DATA =======================
+const DEMO = {
+  usuarios: [
+    { Usuario:'demo', Password:'1234', gestor_servicio:'RENDY MEJIA', Vendedor:'RENDY MEJIA' },
+    { Usuario:'vendedor', Password:'1234', gestor_servicio:'DIOGENES', Vendedor:'DIOGENES' }
+  ],
+  clientes: [
+    { 'Cod Empresa':'1001', RazonSocial:'FERRETERIA EL SOL', Latitud:'18.510', Longitud:'-69.850', Telefono1:'809-555-1111', Celular:'809-999-1111', Provincia:'La Altagracia', Vendedor:'RENDY MEJIA', gestor_servicio:'RENDY MEJIA', Empresa:'WILLIAM'},
+    { 'Cod Empresa':'1002', RazonSocial:'PINTURAS CARIBE',   Latitud:'18,470', Longitud:'-69,900', Telefono1:'809-555-2222', Celular:'809-999-2222', Provincia:'Santo Domingo', Vendedor:'DIOGENES', gestor_servicio:'DIOGENES', Empresa:'WILLIAM'},
+    { 'Cod Empresa':'1003', RazonSocial:'TODO HOGAR',        Latitud:'',       Longitud:'',       Telefono1:'809-555-3333', Celular:'809-999-3333', Provincia:'La Romana', Vendedor:'', gestor_servicio:'', Empresa:'WILLIAM'}
+  ],
+  calendario: [
+    { 'Cod Empresa':'1001', Semana:'32', Dia:'Viernes' },
+    { 'Cod Empresa':'1002', Semana:'32', Dia:'Jueves'  }
+  ]
+};
+
+// ======================= STATE =======================
+const STATE = {
+  calls: [], users: [], clientes: [], calendario: [], joined: [], filtered: [],
+  currentUser: null, selected: null,
+  map: null, markers: [], colorByVendedor: {}, iconByColor: {}
+};
+
+// ======================= UTILS =======================
+const JOIN_KEYS = ['Cod Empresa','CodEmpresa','Cod_Empresa','codigo_empresa','codigo','CodEmp','CodEmpresaId'];
+function norm(v){ return (v??'').toString().trim().toLowerCase(); }
+function stripAccents(s){ return (s??'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function normName(s){ return stripAccents(String(s||'')).trim().toLowerCase(); }
+
+function pick(row, keys){
+  for(const k of keys){ if(row && row[k] != null && row[k] !== '') return row[k]; }
+  const normRow = {}; for(const key in row){ normRow[key.toLowerCase().replace(/\s|_/g,'')] = row[key]; }
+  for(const k of keys){ const nk = k.toLowerCase().replace(/\s|_/g,''); if(nk in normRow) return normRow[nk]; }
+  return '';
+}
+function parseCoord(val){
+  if(val==null) return NaN;
+  const s = String(val).trim();
+  let cleaned = s.replace(/[^0-9,\.\-]/g, '');
+  if(cleaned.includes('.') && cleaned.includes(',')){ cleaned = cleaned.replace(/,/g,''); } else { cleaned = cleaned.replace(',', '.'); }
+  const num = parseFloat(cleaned);
+  return isFinite(num) ? num : NaN;
+}
+function getByGuess(row, patterns){
+  for(const key in row){ if(patterns.some(rx=> rx.test(key))) return row[key]; }
+  const map = {}; for(const k in row){ map[k.toLowerCase().replace(/\s|_/g,'')] = row[k]; }
+  for(const nk in map){ if(patterns.some(rx=> rx.test(nk))) return map[nk]; }
+  return '';
+}
+function getLat(row){ const v = row['Latitud']||row['latitud']||row['LATITUD']||getByGuess(row,[/lat$/i,/^lat/i,/latitude/i]); return parseCoord(v); }
+function getLon(row){ const v = row['Longitud']||row['longitud']||row['LONGITUD']||row['Lng']||row['lng']||getByGuess(row,[/lon$/i,/long/i,/lng/i]); return parseCoord(v); }
+function uniqueSorted(arr){ return Array.from(new Set(arr.filter(x=>x!=null && x!==''))).sort((a,b)=>{ const na=Number(a), nb=Number(b); if(isFinite(na)&&isFinite(nb)) return na-nb; return String(a).localeCompare(String(b),'es',{numeric:true}); }); }
+function showErr(msg){ const el=document.getElementById('errbar'); el.textContent=msg; el.style.display='block'; setTimeout(()=>{ el.style.display='none'; }, 4200); }
+function hashColor(name){ const s=(name||'').toString(); let h=0; for(let i=0;i<s.length;i++){ h=(h<<5)-h+s.charCodeAt(i); h|=0; } const hue=Math.abs(h)%360; return `hsl(${hue} 80% 55%)`; }
+
+// ======================= CSV LOADER =======================
+async function fetchCSV(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const text = await res.text();
+  return parseCSV(text);
+}
+function parseCSV(text){
+  const rows = []; const lines = text.split(/\r?\n/).filter(x=>x.trim().length>0); if(lines.length===0) return rows;
+  const split = (line) => { const result=[]; let cur=''; let inQ=false; for(let i=0;i<line.length;i++){ const c=line[i], n=line[i+1];
+    if(c==='\"'){ if(inQ && n==='\"'){ cur+='\"'; i++; } else inQ=!inQ; } else if(c===',' && !inQ){ result.push(cur); cur=''; } else cur+=c; }
+    result.push(cur); return result; };
+  const headers = split(lines[0]).map(h=>h.trim());
+  for(let i=1;i<lines.length;i++){ const vals = split(lines[i]); const row = {}; headers.forEach((h,idx)=> row[h]= vals[idx]!==undefined ? vals[idx] : '' ); rows.push(row); }
+  return rows;
+}
+
+// ======================= DATA PREP =======================
+function detectVendedor(row){
+  const cand = row['Vendedor']||row['VENDEDOR']||row['vendedor']||row['Vendedor Asignado']||row['VENDEDOR ASIGNADO']||row['VendedorAsignado']||row['VENDEDOR_ASIGNADO']||getByGuess(row,[/vendedor/i,/seller/i,/salesrep/i]);
+  if(cand && String(cand).trim()!=='') return cand;
+  return row['gestor_servicio']||row['Gestor']||row['GESTOR_SERVICIO']||''; // fallback
+}
+function mapUserRecord(r){
+  const u = r['Usuario']||r['usuario']||r['Login']||r['NombreUsuario']||r['USUARIO'];
+  const p = r['Password']||r['Contraseña']||r['Contrasena']||r['PASS']||r['Clave'];
+  return { Usuario:(u??'').toString(), Password:(p??'').toString(), gestor_servicio:r['gestor_servicio']||r['Gestor']||r['GESTOR_SERVICIO']||'', Vendedor: detectVendedor(r) };
+}
+
+function vendorExcludedSet(){
+  const arr = CONFIG.excluirVendedores || [];
+  return new Set(arr.map(v=> normName(v) ).filter(Boolean));
+}
+function isVendorExcluded(name){
+  if(!name) return false;
+  return vendorExcludedSet().has(normName(name));
+}
+
+function buildJoined(){
+  const idxCal = {}; const getDia = r => r['Dia'] ?? r['Día'] ?? r['dia'] ?? r['DIA']; const getSem = r => r['Semana'] ?? r['SEMANA'] ?? r['semana'];
+  STATE.calendario.forEach(r=>{ const key = norm(pick(r, JOIN_KEYS)); if(!key) return; if(!idxCal[key]) idxCal[key]=r; });
+  STATE.joined = STATE.clientes.map(c=>{
+    const key = norm(pick(c, JOIN_KEYS)); const m = idxCal[key]; const semana = m ? (getSem(m) || 'Por asignar') : 'Por asignar'; const dia = m ? (getDia(m) || 'Por asignar') : 'Por asignar';
+    const lat = getLat(c); const lon = getLon(c);
+    const vendedor = detectVendedor(c);
+    return { cod: pick(c, JOIN_KEYS) || '', nombre: c['NombreCliente']||c['Cliente']||c['RazonSocial']||c['RAZONSOCIAL']||'', semana, dia,
+      vendedor, gestor: c['gestor_servicio']||c['Gestor']||c['GESTOR_SERVICIO']||'', empresa: c['Empresa']||c['EMPRESA']||'', lat, lon,
+      telefono1: c['Telefono1']||c['TEL1']||c['Telefono']||c['Tel']||c['TEL']||'',
+      celular: c['Celular']||c['CELULAR']||c['Movil']||c['Móvil']||'',
+      provincia: c['Provincia']||c['PROVINCIA']||c['estado']||c['Departamento']||'' };
+  });
+  if((CONFIG.excluirVendedores||[]).length){
+    STATE.joined = STATE.joined.filter(x=> !isVendorExcluded(x.vendedor) );
+  }
+}
+
+// ======================= UI RENDER =======================
+function buildFilters(){
+  const S=STATE.joined;
+  fillSelect('fSemana', uniqueSorted(S.map(x=>x.semana)), 'Todas');
+  fillSelect('fDia', uniqueSorted(S.map(x=>x.dia)), 'Todos');
+  const vendOpts = uniqueSorted(S.map(x=>x.vendedor)).filter(v=> !isVendorExcluded(v) );
+  fillSelect('fVendedor', vendOpts, 'Todos');
+  fillSelect('fGestor', uniqueSorted(S.map(x=>x.gestor)), 'Todos');
+  fillSelect('fEmpresa', uniqueSorted(S.map(x=>x.empresa)), 'Todas');
+  const opts = S.map(x=>({value:x.cod, label:`${x.cod} - ${x.nombre}`})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));
+  const sel = document.getElementById('fCliente'); sel.innerHTML = '<option value="">-- Seleccione --</option>' + opts.map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
+  buildLegend();
+}
+function fillSelect(id, arr, defLabel){ const el=document.getElementById(id); el.innerHTML = `<option value="">${defLabel}</option>` + arr.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join(''); }
+function buildLegend(){
+  const legend=document.getElementById('legend'); legend.innerHTML='';
+  uniqueSorted(STATE.joined.map(x=>x.vendedor))
+    .filter(v=> !isVendorExcluded(v))
+    .forEach(v=>{ const c=hashColor(v||''); const span=document.createElement('span'); span.className='chip'; span.style.borderColor=c; span.style.color='#dbe7ff'; span.textContent=v||'Sin vendedor'; legend.appendChild(span); });
+}
+function applyFilters(){
+  const fSemana=val('fSemana'), fDia=val('fDia'), fVend=val('fVendedor'), fGes=val('fGestor'), fEmp=val('fEmpresa'), fBus=norm(val('fBuscar')), fCli=val('fCliente');
+  STATE.filtered = STATE.joined.filter(x=>{
+    if(isVendorExcluded(x.vendedor)) return false;
+    if(fSemana && String(x.semana)!==String(fSemana)) return false; if(fDia && String(x.dia)!==String(fDia)) return false;
+    if(fVend && String(x.vendedor)!==String(fVend)) return false; if(fGes && String(x.gestor)!==String(fGes)) return false;
+    if(fEmp && String(x.empresa)!==String(fEmp)) return false; if(fCli && String(x.cod)!==String(fCli)) return false;
+    if(fBus){ const hay=[x.cod,x.nombre,x.vendedor,x.gestor,x.empresa].map(v=>norm(v)).some(s=>s.includes(fBus)); if(!hay) return false; }
+    return true;
+  });
+  renderTable(); renderMap(); updateStats(); updateButtonsState();
+}
+function val(id){ return document.getElementById(id).value; }
+function renderTable(){
+  const tb=document.querySelector('#tbl tbody'); tb.innerHTML='';
+  STATE.filtered.forEach(x=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${x.cod}</td><td>${x.nombre}</td><td>${x.semana}</td><td>${x.dia}</td><td>${x.vendedor}</td><td>${x.gestor}</td><td>${x.empresa}</td>`; tr.style.cursor='pointer'; tr.onclick=()=>selectCliente(x); tb.appendChild(tr); });
+}
+
+// ===== Map with PIN icons =====
+function initMap(){
+  if(STATE.map) return;
+  const RD=[18.735693,-70.162651]; STATE.map=L.map('map',{zoomControl:true}).setView(RD,8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(STATE.map);
+  setTimeout(()=>STATE.map.invalidateSize(), 200); window.addEventListener('resize', ()=>STATE.map&&STATE.map.invalidateSize());
+}
+function clearMarkers(){ STATE.markers.forEach(m=>STATE.map.removeLayer(m)); STATE.markers=[]; }
+function getVendedorColor(v){ if(!v) return '#9aa3b2'; if(!STATE.colorByVendedor[v]) STATE.colorByVendedor[v]=hashColor(v); return STATE.colorByVendedor[v]; }
+
+function svgPin(color){
+  const fill = color || '#3b82f6';
+  const stroke = '#08121f';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="38" viewBox="0 0 26 38">
+    <path d="M13 0C7 0 2 5 2 11c0 7.5 9 17 11 19 2-2 11-11.5 11-19C24 5 19 0 13 0z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+    <circle cx="13" cy="12" r="4.2" fill="#fff" stroke="${stroke}" stroke-width="2"/>
+  </svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+function pinIcon(color){
+  if(!STATE.iconByColor[color]){
+    STATE.iconByColor[color] = L.icon({
+      iconUrl: svgPin(color),
+      iconSize: [26, 38],
+      iconAnchor: [13, 36],
+      popupAnchor: [0, -30],
+      className: 'vendor-pin'
+    });
+  }
+  return STATE.iconByColor[color];
+}
+
+function renderMap(){
+  initMap(); clearMarkers(); const bounds=[]; let rendered=0;
+  STATE.filtered.forEach(x=>{
+    if(!isFinite(x.lat)||!isFinite(x.lon)) return; 
+    const color=getVendedorColor(x.vendedor);
+    const m=L.marker([x.lat,x.lon],{ icon: pinIcon(color) }).addTo(STATE.map);
+    m.bindPopup(`<strong>${x.nombre}</strong><div class="muted">Cod ${x.cod} • ${x.empresa||''}</div><div>Semana: ${x.semana} • Día: ${x.dia}</div><div>Vendedor: ${x.vendedor||'-'} • Gestor: ${x.gestor||'-'}</div>`);
+    m.on('click',()=>selectCliente(x)); STATE.markers.push(m); bounds.push([x.lat,x.lon]); rendered++;
+  });
+  document.getElementById('hintZero').style.display = rendered? 'none':'block';
+  if(bounds.length){ STATE.map.fitBounds(bounds,{padding:[20,20]}); } else { STATE.map.setView([18.735693,-70.162651],8); }
+  setTimeout(()=>STATE.map.invalidateSize(), 50);
+}
+function selectCliente(x){ STATE.selected=x; document.getElementById('fCliente').value=x.cod; renderMap(); updateButtonsState(); }
+function updateButtonsState(){ const has=!!STATE.selected; document.getElementById('btnRegistrar').toggleAttribute('disabled', !has); document.getElementById('btnFicha').toggleAttribute('disabled', !has); }
+function updateStats(){ const t=STATE.joined.length, g=STATE.joined.filter(x=>isFinite(x.lat)&&isFinite(x.lon)).length, f=STATE.filtered.length; document.getElementById('statTotal').textContent=t; document.getElementById('statGeo').textContent=g; document.getElementById('statFilt').textContent=f; }
+function exportCSV(){ const headers=['Cod','Cliente','Semana','Dia','Vendedor','Gestor','Empresa','Latitud','Longitud']; const rows=STATE.filtered.map(x=>[x.cod,x.nombre,x.semana,x.dia,x.vendedor,x.gestor,x.empresa,x.lat||'',x.lon||'']); const csv=[headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='clientes_filtrados.csv'; a.click(); URL.revokeObjectURL(a.href); }
+function csvEscape(v){ if(v==null) return ''; const s=String(v); return (s.includes(',')||s.includes('"')||s.includes('\n'))?('"'+s.replace(/"/g,'""')+'"'):s; }
+
+// ======================= REGISTRAR LLAMADA =======================
+function formatDatetimeLocal(d){
+  const pad=n=> String(n).padStart(2,'0');
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function openCallModal(){
+  if(!STATE.selected){ showErr('Debe seleccionar un cliente.'); return; }
+  const x = STATE.selected;
+  document.getElementById('callCliente').value = x.nombre || '';
+  document.getElementById('callCodEmpresa').value = x.cod || '';
+  document.getElementById('callVendedor').value = x.vendedor || '';
+  document.getElementById('callGestor').value = x.gestor || '';
+  document.getElementById('callFechaHora').value = formatDatetimeLocal(new Date());
+  document.getElementById('callResultado').value = 'Exitosa';
+  document.getElementById('callDuracion').value = 0;
+  document.getElementById('callObs').value = '';
+
+  document.getElementById('callTelefono1').value = x.telefono1 || '';
+  document.getElementById('callCelular').value = x.celular || '';
+  document.getElementById('callProvincia').value = x.provincia || '';
+
+  document.getElementById('callCitaTipo').value = 'sin_cita';
+  document.getElementById('callCitaFecha').value = '';
+  document.getElementById('callCitaHora').value = '';
+
+  document.getElementById('callStatus').textContent = '';
+  const m=document.getElementById('modalLlamada'); m.classList.remove('hidden'); m.style.display='flex'; document.body.classList.add('no-scroll');
+}
+function closeCallModal(){ const m=document.getElementById('modalLlamada'); m.classList.add('hidden'); m.style.display='none'; document.body.classList.remove('no-scroll'); }
+function saveCallRecord(){
+  if(!STATE.selected){ showErr('Debe seleccionar un cliente.'); return; }
+  const record = {
+    cliente: document.getElementById('callCliente').value.trim(),
+    cod_empresa: document.getElementById('callCodEmpresa').value.trim(),
+    vendedor: document.getElementById('callVendedor').value.trim(),
+    gestor_servicio: document.getElementById('callGestor').value.trim(),
+    fecha_hora: document.getElementById('callFechaHora').value,
+    resultado: document.getElementById('callResultado').value,
+    duracion_seg: Number(document.getElementById('callDuracion').value||0),
+    observaciones: document.getElementById('callObs').value.trim(),
+    telefono1: document.getElementById('callTelefono1').value.trim(),
+    celular: document.getElementById('callCelular').value.trim(),
+    provincia: document.getElementById('callProvincia').value.trim(),
+    cita_tipo: document.getElementById('callCitaTipo').value,
+    cita_fecha: document.getElementById('callCitaFecha').value,
+    cita_hora: document.getElementById('callCitaHora').value
+  };
+  STATE.calls.push(record);
+  try{
+    const prev = JSON.parse(localStorage.getItem('llamadas_records')||'[]');
+    prev.push(record);
+    localStorage.setItem('llamadas_records', JSON.stringify(prev));
+  }catch(e){ console.error(e); }
+
+  document.getElementById('callStatus').textContent = 'Registro guardado localmente.';
+  setTimeout(()=>{ closeCallModal(); showErr('Llamada registrada.'); }, 400);
+}
+
+
+// ======================= REPORTE =======================
+function loadAllCallRecords(){
+  let local = [];
+  try{ local = JSON.parse(localStorage.getItem('llamadas_records')||'[]'); }catch(_){ local=[]; }
+  return [...local, ...STATE.calls];
+}
+function openReporte(){
+  renderReporte(); 
+  const m=document.getElementById('modalReporte'); m.classList.remove('hidden'); m.style.display='flex'; document.body.classList.add('no-scroll');
+}
+function closeReporte(){
+  const m=document.getElementById('modalReporte'); m.classList.add('hidden'); m.style.display='none'; document.body.classList.remove('no-scroll');
+}
+function repFilters(){
+  const desde = document.getElementById('repDesde').value;
+  const hasta = document.getElementById('repHasta').value;
+  const vend = norm(document.getElementById('repVendedor').value);
+  const gest = norm(document.getElementById('repGestor').value);
+  const res  = document.getElementById('repResultado').value;
+  return {desde,hasta,vend,gest,res};
+}
+function renderReporte(){
+  const all = loadAllCallRecords();
+  const {desde,hasta,vend,gest,res} = repFilters();
+  let ds = desde? new Date(desde+'T00:00:00') : null;
+  let hs = hasta? new Date(hasta+'T23:59:59') : null;
+  const rows = all.filter(r=>{
+    let ok = true;
+    const fh = r.fecha_hora || '';
+    const d = fh ? new Date(fh) : null;
+    if(ds && d && d < ds) ok=false;
+    if(hs && d && d > hs) ok=false;
+    if(vend && norm(r.vendedor) !== vend) ok=false;
+    if(gest && norm(r.gestor_servicio) !== gest) ok=false;
+    if(res && String(r.resultado) !== String(res)) ok=false;
+    return ok;
+  });
+  const tb=document.querySelector('#repTbl tbody'); tb.innerHTML='';
+  rows.forEach(r=>{
+    const cita = (r.cita_tipo && r.cita_tipo!=='sin_cita') ? (r.cita_tipo+' '+(r.cita_fecha||'')+' '+(r.cita_hora||'')) : '';
+    const tr=document.createElement('tr');
+    tr.innerHTML = '<td>'+ (r.fecha_hora||'') +'</td>'+
+                   '<td>'+ (r.cliente||'') +'</td>'+
+                   '<td>'+ (r.cod_empresa||'') +'</td>'+
+                   '<td>'+ (r.vendedor||'') +'</td>'+
+                   '<td>'+ (r.gestor_servicio||'') +'</td>'+
+                   '<td>'+ (r.resultado||'') +'</td>'+
+                   '<td>'+ (r.duracion_seg||'') +'</td>'+
+                   '<td>'+ (r.observaciones||'') +'</td>'+
+                   '<td>'+ (r.provincia||'') +'</td>'+
+                   '<td>'+ (r.telefono1||'') +'</td>'+
+                   '<td>'+ (r.celular||'') +'</td>'+
+                   '<td>'+ cita +'</td>';
+    tb.appendChild(tr);
+  });
+}
+function exportReporteCSV(){
+  const tb=document.querySelector('#repTbl tbody');
+  const headers=['Fecha/Hora','Cliente','Cod','Vendedor','Gestor','Resultado','Duración','Obs','Provincia','Tel1','Cel','Cita'];
+  const rows=[...tb.querySelectorAll('tr')].map(tr=>[...tr.children].map(td=>td.textContent));
+  const csv=[headers.join(','),...rows.map(r=>r.map(csvEscape).join(','))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reporte_llamadas.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ======================= LOGIN =======================
+function doLogin(){
+  const u=val('loginUser').trim(), p=val('loginPass'); if(!u||!p){ showErr('Ingrese usuario y contraseña.'); return; }
+  const ok=STATE.users.find(x=> norm(x.Usuario)===norm(u) && String(x.Password)===String(p) );
+  if(!ok){ showErr('Usuario o contraseña incorrectos.'); return; }
+  document.getElementById('login').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); setTimeout(()=>STATE.map&&STATE.map.invalidateSize(), 50); applyFilters();
+}
+
+// ======================= CONFIG MODAL =======================
+function openConfig(){
+  document.getElementById('cfgMode').value = CONFIG.mode;
+  document.getElementById('cfgUsuarios').value = CONFIG.sheets.usuarios || '';
+  document.getElementById('cfgClientes').value = CONFIG.sheets.clientes || '';
+  document.getElementById('cfgCalendario').value = CONFIG.sheets.calendario || '';
+  document.getElementById('cfgExcluirVendedores').value = (CONFIG.excluirVendedores||[]).join('\n');
+  document.getElementById('cfgStatus').textContent = '';
+  const m=document.getElementById('modalConfig'); m.classList.remove('hidden'); m.style.display='flex';
+}
+function closeConfig(){ const m=document.getElementById('modalConfig'); m.classList.add('hidden'); m.style.display='none'; }
+async function testConfig(){
+  const u=val('cfgUsuarios').trim(), c=val('cfgClientes').trim(), k=val('cfgCalendario').trim(); const out=[];
+  async function tryFetch(name, url){ if(!url){ out.push(`${name}: (vacío)`); return; } try{ const arr=await fetchCSV(url); out.push(`${name}: OK (${arr.length} filas)`); }catch(e){ out.push(`${name}: ERROR (${e.message})`); } }
+  await tryFetch('Usuarios',u); await tryFetch('Clientes',c); await tryFetch('Calendario',k); document.getElementById('cfgStatus').textContent = out.join(' • ');
+}
+function parseExcludeTextarea(){
+  const raw = document.getElementById('cfgExcluirVendedores').value || '';
+  return raw.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
+}
+function saveToLocalStorage(cfg){
+  try{ localStorage.setItem('llamadas_config', JSON.stringify(cfg)); return true; }catch(e){ console.error(e); showErr('No se pudo guardar configuración (localStorage).'); return false; }
+}
+function forceReload(){ try{ location.reload(); }catch(_){ try{ window.location.assign(window.location.pathname + '?r=' + Date.now()); }catch(__){} } }
+function saveConfig(){
+  const modeSel = val('cfgMode');
+  const usuarios = val('cfgUsuarios').trim();
+  const clientes = val('cfgClientes').trim();
+  const calendario = val('cfgCalendario').trim();
+  const shouldForceSheets = usuarios && clientes && calendario;
+  const mode = (modeSel!=='sheets' && shouldForceSheets) ? 'sheets' : modeSel;
+  const excluirVendedores = parseExcludeTextarea();
+  const cfg = { mode, sheets:{ usuarios, clientes, calendario }, excluirVendedores };
+  if(saveToLocalStorage(cfg)){
+    const s=document.getElementById('cfgStatus'); s.textContent='Configuración guardada. Recargando...';
+    document.getElementById('btnCfgGuardar').disabled=true; document.getElementById('btnCfgProbar').disabled=true; document.getElementById('btnCfgAplicar').disabled=true;
+    setTimeout(()=>{ closeConfig(); forceReload(); }, 350);
+  }
+}
+async function applyConfigNow(){
+  const usuarios = val('cfgUsuarios').trim(), clientes = val('cfgClientes').trim(), calendario = val('cfgCalendario').trim();
+  const excluirVendedores = parseExcludeTextarea();
+  const cfg = { mode:'sheets', sheets:{usuarios, clientes, calendario}, excluirVendedores };
+  saveToLocalStorage(cfg);
+  document.getElementById('cfgStatus').textContent = 'Aplicando configuración... cargando datos';
+  try{
+    STATE.users = (await fetchCSV(usuarios)).map(mapUserRecord);
+    STATE.clientes = await fetchCSV(clientes);
+    STATE.calendario = await fetchCSV(calendario);
+    CONFIG = cfg;
+    document.getElementById('modeLabel').textContent = CONFIG.mode;
+    document.getElementById('usersCount').textContent = STATE.users.length;
+    buildJoined(); buildFilters(); applyFilters();
+    document.getElementById('cfgStatus').textContent = 'Listo. Puedes cerrar esta ventana.';
+  }catch(err){
+    document.getElementById('cfgStatus').textContent = 'Error cargando datos: ' + err.message;
+  }
+}
+function clearConfig(){ try{ localStorage.removeItem('llamadas_config'); }catch(_){ } forceReload(); }
+
+// Keyboard: ESC para cerrar config
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeConfig(); } });
+
+// Toggle legend
+document.addEventListener('click', (e)=>{
+  if(e.target && e.target.id==='btnToggleLegend'){
+    const el = document.getElementById('legend');
+    const isHidden = el.classList.contains('hidden');
+    el.classList.toggle('hidden');
+    e.target.textContent = isHidden ? '👁️ Ocultar leyenda' : '👁️ Mostrar leyenda';
+  }
+});
+
+// ======================= INIT =======================
+async function init(){
+  // Load saved config
+  try{
+    const saved = JSON.parse(localStorage.getItem('llamadas_config')||'null');
+    if(saved && typeof saved==='object'){
+      CONFIG = Object.assign({}, DEFAULT_CONFIG, saved);
+      CONFIG.sheets = Object.assign({}, DEFAULT_CONFIG.sheets, saved.sheets||{});
+      CONFIG.excluirVendedores = Array.isArray(saved.excluirVendedores) ? saved.excluirVendedores : DEFAULT_CONFIG.excluirVendedores;
+    }
+  }catch(_){}
+  document.getElementById('modeLabel').textContent = CONFIG.mode;
+
+  // Load data
+  if(CONFIG.mode==='sheets' && CONFIG.sheets.usuarios && CONFIG.sheets.clientes && CONFIG.sheets.calendario){
+    try{
+      STATE.users = (await fetchCSV(CONFIG.sheets.usuarios)).map(mapUserRecord);
+      STATE.clientes = await fetchCSV(CONFIG.sheets.clientes);
+      STATE.calendario = await fetchCSV(CONFIG.sheets.calendario);
+    }catch(err){
+      console.error(err); showErr('Error cargando hojas. Pasando a modo demo local.'); fallbackToDemo();
+    }
+  }else{
+    fallbackToDemo();
+  }
+  document.getElementById('usersCount').textContent = STATE.users.length;
+
+  buildJoined(); buildFilters(); updateStats(); applyFilters();
+
+  // Events
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  ['fSemana','fDia','fVendedor','fGestor','fEmpresa'].forEach(id=> document.getElementById(id).addEventListener('change', applyFilters));
+  document.getElementById('fBuscar').addEventListener('input', applyFilters);
+  document.getElementById('fCliente').addEventListener('change', ()=>{ const cod=val('fCliente'); const x=STATE.joined.find(r=> String(r.cod)===String(cod) ); if(x){ selectCliente(x); } else { STATE.selected=null; updateButtonsState(); } });
+  document.getElementById('btnExport').addEventListener('click', exportCSV);
+  document.getElementById('btnRestaurar').addEventListener('click', ()=>{ ['fSemana','fDia','fVendedor','fGestor','fEmpresa'].forEach(id=> document.getElementById(id).value=''); document.getElementById('fBuscar').value=''; document.getElementById('fCliente').value=''; STATE.selected=null; applyFilters(); });
+  document.getElementById('btnToggleFiltros').addEventListener('click', ()=>{ const p=document.getElementById('panelFiltros'); p.style.display=(p.style.display==='none')?'block':'none'; setTimeout(()=>STATE.map&&STATE.map.invalidateSize(),50); });
+
+  // Registrar llamada modal
+  document.getElementById('btnRegistrar').addEventListener('click', openCallModal);
+  document.getElementById('btnAgenda').addEventListener('click', openAgenda);
+  document.getElementById('btnAgCerrar').addEventListener('click', closeAgenda);
+  ['agDesde','agHasta','agVend','agGest','agStatus'].forEach(id=> document.getElementById(id).addEventListener('change', renderAgenda));
+  document.getElementById('agExport').addEventListener('click', exportReporteCSV);
+  document.getElementById('btnReporte').addEventListener('click', openReporte);
+  document.getElementById('btnRepCerrar').addEventListener('click', closeReporte);
+  document.getElementById('repExport').addEventListener('click', exportReporteCSV);
+  document.getElementById('repDesde').addEventListener('change', renderReporte);
+  document.getElementById('repHasta').addEventListener('change', renderReporte);
+  document.getElementById('repVendedor').addEventListener('input', renderReporte);
+  document.getElementById('repGestor').addEventListener('input', renderReporte);
+  document.getElementById('repResultado').addEventListener('change', renderReporte);
+  document.getElementById('btnCallCancelar').addEventListener('click', closeCallModal);
+  document.getElementById('btnCallGuardar').addEventListener('click', saveCallRecord);
+
+  // Cerrar modal con ESC
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='Escape'){ closeCallModal(); }
+  });
+
+  // Config modal
+  document.getElementById('btnOpenConfig').addEventListener('click', openConfig);
+  document.getElementById('btnOpenConfig2').addEventListener('click', openConfig);
+  document.getElementById('btnCfgCerrar').addEventListener('click', closeConfig);
+  document.getElementById('btnCfgProbar').addEventListener('click', testConfig);
+  document.getElementById('btnCfgGuardar').addEventListener('click', saveConfig);
+  document.getElementById('btnCfgAplicar').addEventListener('click', applyConfigNow);
+  document.getElementById('btnCfgLimpiar').addEventListener('click', clearConfig);
+}
+function fallbackToDemo(){ STATE.users = DEMO.usuarios.map(mapUserRecord); STATE.clientes = DEMO.clientes; STATE.calendario = DEMO.calendario; }
+
+window.addEventListener('DOMContentLoaded', ()=>{ init(); initMap(); });
+</script>
+</body>
+</html>
