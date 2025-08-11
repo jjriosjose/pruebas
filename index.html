@@ -317,13 +317,22 @@
   <div class="errbar" id="errbar"></div>
 
 <script>
+/<!-- ======================= CONFIG ======================= -->
+<script>
 // ======================= CONFIG =======================
 const DEFAULT_CONFIG = { 
-  mode:'local', 
-  sheets:{usuarios:'', clientes:'', calendario:''},
+  mode:'sheets', 
+  sheets:{
+    // 👇 Reemplaza estos tres enlaces por tus URLs PUBLICADAS como CSV
+    usuarios: 'https://docs.google.com/spreadsheets/d/TU_ID_USUARIOS/pub?output=csv',
+    clientes: 'https://docs.google.com/spreadsheets/d/TU_ID_CLIENTES/pub?output=csv',
+    calendario:'https://docs.google.com/spreadsheets/d/TU_ID_CALENDARIO/pub?output=csv'
+  },
   excluirVendedores: []
 };
 let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+</script>
+
 
 // ======================= DEMO DATA =======================
 const DEMO = {
