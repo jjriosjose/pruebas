@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visitas programadas - Agenda v7.7</title>
+<style>
+:root{
+  --bg:#0b1220; --card:#131c2b; --muted:#90a0b7; --text:#e8eef9;
+  --chip:#1f2a40; --ok:#16a34a; --warn:#a16207; --danger:#ef4444; --primary:#2dd4bf;
+}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:#0b1220;color:var(--text)}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+.card{background:#121a2b;border:1px solid #22304a;border-radius:16px;padding:12px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid #2c3c5b;background:#0f1726;color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+.btn:hover{transform:translateY(-1px)} .btn-primary{background:linear-gradient(135deg,#1aa27f,#2dd4bf);border:0;color:#052018}
+.btn-soft{background:#101a2e;border:1px solid #2c3d5d}
+.badge{padding:2px 8px;border-radius:999px;background:var(--chip);color:#a7b3c8;font-size:12px}
+.filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+select,input[type="date"]{width:100%;padding:10px;border-radius:10px;border:1px solid #314463;background:#0f1726;color:var(--text)}
+.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+.col{display:flex;flex-direction:column;gap:8px}
+.col>h3{margin:0;font-size:20px}
+.board{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding-right:6px}
+.cardv{background:#0e1626;border:1px solid #26354f;border-radius:12px;padding:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.meta{color:#a7b3c8;font-size:12px}
+.field{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.field input[type="date"],.field input[type="time"],.field select{padding:6px 8px}
+.status-chip{padding:2px 8px;border-radius:999px;border:1px solid #314463;font-size:11px}
+.ok{background:#0c1f16;border-color:#1c5a37} .warn{background:#1e1a0e;border-color:#6b530b} .danger{background:#2a1010;border-color:#7a2727}
+.alert{margin:8px 0;padding:10px;border-radius:10px;background:#113019;border:1px solid #1f5f39}
+small{color:#9fb1cc}
+hr.sep{border:0;border-top:1px solid #22304a;margin:4px 0}
+.empty{color:#90a0b7;font-size:12px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="toolbar">
+    <h2 style="margin:0">🗓️ Visitas programadas</h2>
+    <span class="badge">Agenda v7.7</span>
+  </div>
+  <div class="card">
+    <div class="toolbar" style="margin-bottom:8px">
+      <button id="btnHoy" class="btn btn-soft">Hoy</button>
+      <button id="btnSemana" class="btn btn-soft">Esta semana</button>
+      <button id="btnTodas" class="btn btn-soft">Todas</button>
+      <div style="flex:1"></div>
+      <button id="btnExport" class="btn">⬇ Exportar CSV</button>
+    </div>
+    <div class="filters">
+      <div><label>Desde</label><input id="fDesde" type="date"></div>
+      <div><label>Hasta</label><input id="fHasta" type="date"></div>
+      <div><label>Vendedor</label><select id="fVendedor"><option value="">(todos)</option></select></div>
+      <div><label>Gestor</label><select id="fGestor"><option value="">(todos)</option></select></div>
+      <div><label>Estatus visita</label>
+        <select id="fEstatus">
+          <option value="">(todos)</option>
+          <option>programada</option>
+          <option>asistió</option>
+          <option>no asistió</option>
+          <option>reprogramada</option>
+          <option>cancelada</option>
+        </select>
+      </div>
+      <div class="toolbar"><label>&nbsp;</label><button id="btnLimpiar" class="btn btn-soft">Limpiar</button></div>
+    </div>
+    <div id="alert48" class="alert" style="display:none"></div>
+    <div class="kanban">
+      <div class="col">
+        <h3>Hoy <small id="countHoy">0</small></h3>
+        <div id="colHoy" class="board"></div>
+      </div>
+      <div class="col">
+        <h3>Esta semana <small id="countSemana">0</small></h3>
+        <div id="colSemana" class="board"></div>
+      </div>
+      <div class="col">
+        <h3>Futuras <small id="countFut">0</small></h3>
+        <div id="colFut" class="board"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ---------- Helpers ----------
+const pad=n=>String(n).padStart(2,'0');
+const parseDate=s=>{ if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
+const toDateInput=d=> d? (d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())):'';
+const toTimeInput=d=> d? (pad(d.getHours())+':'+pad(d.getMinutes())):'';
+const addDays=(d,n)=> new Date(d.getFullYear(), d.getMonth(), d.getDate()+n, d.getHours(), d.getMinutes());
+const startOfWeek=d=>{ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; };
+const endOfWeek=d=> addDays(startOfWeek(d),6);
+const norm=s=>(s??'').toString().trim().toLowerCase();
+const clone=o=>JSON.parse(JSON.stringify(o||{}));
+
+// ---------- Demo or stored data ----------
+const demo = [
+  {id:'1001-1', cod:'1001', cliente:'FERRETERIA EL SOL', vendedor:'RENDY MEJIA', gestor:'RENDY MEJIA', fecha:'2025-08-12', hora:'10:00', estatus:'programada', obs:'visitar showroom'},
+  {id:'1002-1', cod:'1002', cliente:'PINTURAS CARIBE', vendedor:'DIOGENES', gestor:'DIOGENES', fecha:'2025-08-22', hora:'10:00', estatus:'programada', obs:'visitar showroom'},
+  {id:'1002-2', cod:'1002', cliente:'PINTURAS CARIBE', vendedor:'DIOGENES', gestor:'EVELYN', fecha:'2025-08-29', hora:'14:00', estatus:'programada', obs:'visitar showroom'},
+];
+function loadData(){
+  try{
+    const raw = localStorage.getItem('agenda_visitas');
+    if(!raw) return demo;
+    const arr = JSON.parse(raw);
+    if(!Array.isArray(arr)) return demo;
+    return arr;
+  }catch(e){ return demo; }
+}
+function saveData(arr){ try{ localStorage.setItem('agenda_visitas', JSON.stringify(arr)); }catch(e){} }
+
+let DATA = loadData();
+
+// ---------- Filters ----------
+function unique(arr){ return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>String(a).localeCompare(String(b),'es',{numeric:true})); }
+function fillFilters(){
+  const vend = unique(DATA.map(x=>x.vendedor));
+  const gest = unique(DATA.map(x=>x.gestor));
+  const fV=document.getElementById('fVendedor'); fV.innerHTML='<option value="">(todos)</option>'+vend.map(v=>'<option>'+v+'</option>').join('');
+  const fG=document.getElementById('fGestor'); fG.innerHTML='<option value="">(todos)</option>'+gest.map(g=>'<option>'+g+'</option>').join('');
+}
+function applyFilters(items){
+  const fd=parseDate(document.getElementById('fDesde').value);
+  const fh=parseDate(document.getElementById('fHasta').value); if(fh) fh.setHours(23,59,59,999);
+  const vend=document.getElementById('fVendedor').value;
+  const gest=document.getElementById('fGestor').value;
+  const est=document.getElementById('fEstatus').value;
+  return items.filter(x=>{
+    const dt=parseDate(x.fecha);
+    if(fd && dt<fd) return false;
+    if(fh && dt>fh) return false;
+    if(vend && x.vendedor!==vend) return false;
+    if(gest && x.gestor!==gest) return false;
+    if(est && x.estatus!==est) return false;
+    return true;
+  });
+}
+
+// ---------- Rendering ----------
+function render(){
+  fillFilters();
+  const items = applyFilters([...DATA]);
+  items.sort((a,b)=> (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  // Alert 48h
+  const now = new Date();
+  const in48 = addDays(now,2);
+  const alertItems = items.filter(x=>{
+    const d=parseDate(x.fecha); if(!d) return false;
+    const ok = d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()) && d<=in48;
+    return ok && (x.estatus==='programada' || x.estatus==='reprogramada');
+  });
+  const bar=document.getElementById('alert48');
+  if(alertItems.length){
+    bar.style.display='block';
+    const summary = alertItems.map(x=> x.cliente+' '+x.fecha+' '+x.hora).join(' • ');
+    bar.textContent = '🔔 Aviso: '+alertItems.length+' visita(s) en las próximas 48h. '+summary;
+  }else{ bar.style.display='none'; }
+
+  // Columns
+  const colHoy=document.getElementById('colHoy'), colSem=document.getElementById('colSemana'), colFut=document.getElementById('colFut');
+  colHoy.innerHTML=''; colSem.innerHTML=''; colFut.innerHTML='';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const sow = startOfWeek(new Date()); const eow=endOfWeek(new Date());
+  let cHoy=0,cSem=0,cFut=0;
+
+  items.forEach(x=>{
+    const d=parseDate(x.fecha); if(!d) return;
+    const card = buildCard(x);
+    if(d.getTime()===today.getTime()){ colHoy.appendChild(card); cHoy++; }
+    else if(d>=sow && d<=eow){ colSem.appendChild(card); cSem++; }
+    else if(d>eow){ colFut.appendChild(card); cFut++; }
+  });
+  if(cHoy===0) colHoy.innerHTML='<div class="empty">Sin visitas</div>';
+  if(cSem===0) colSem.innerHTML='<div class="empty">Sin visitas</div>';
+  if(cFut===0) colFut.innerHTML='<div class="empty">Sin visitas</div>';
+  document.getElementById('countHoy').textContent=cHoy;
+  document.getElementById('countSemana').textContent=cSem;
+  document.getElementById('countFut').textContent=cFut;
+}
+function buildCard(item){
+  const el=document.createElement('div'); el.className='cardv';
+  const statusClass = item.estatus==='asistió'?'ok':(item.estatus==='programada' || item.estatus==='reprogramada' ? 'warn' : (item.estatus==='no asistió'?'danger':''));
+  el.innerHTML = `
+    <div class="row"><strong>${item.cliente}</strong><span class="status-chip ${statusClass}">${item.estatus}</span></div>
+    <div class="meta">${item.cod} • ${item.vendedor} • ${item.gestor}</div>
+    <hr class="sep">
+    <div class="field">
+      <input type="date" value="${item.fecha}" data-role="fecha">
+      <input type="time" value="${item.hora}" data-role="hora">
+      <select data-role="estatus">
+        <option ${item.estatus==='programada'?'selected':''}>programada</option>
+        <option ${item.estatus==='asistió'?'selected':''}>asistió</option>
+        <option ${item.estatus==='no asistió'?'selected':''}>no asistió</option>
+        <option ${item.estatus==='reprogramada'?'selected':''}>reprogramada</option>
+        <option ${item.estatus==='cancelada'?'selected':''}>cancelada</option>
+      </select>
+      <button class="btn btn-soft" data-action="reprog" title="Reprogramar +7d">⟳</button>
+      <button class="btn btn-primary" data-action="save">Guardar</button>
+    </div>
+    <div class="meta" style="margin-top:4px">${item.obs||''}</div>
+  `;
+  // Handlers
+  el.querySelector('[data-action="reprog"]').addEventListener('click', ()=>{
+    const d=parseDate(el.querySelector('[data-role="fecha"]').value)||new Date();
+    const nd = addDays(d,7);
+    el.querySelector('[data-role="fecha"]').value = toDateInput(nd);
+    el.querySelector('[data-role="estatus"]').value = 'reprogramada';
+  });
+  el.querySelector('[data-action="save"]').addEventListener('click', ()=>{
+    const f = el.querySelector('[data-role="fecha"]').value;
+    const h = el.querySelector('[data-role="hora"]').value;
+    const s = el.querySelector('[data-role="estatus"]').value;
+    const idx = DATA.findIndex(r=>r.id===item.id);
+    if(idx>-1){ DATA[idx]=Object.assign({}, DATA[idx], {fecha:f, hora:h, estatus:s}); saveData(DATA); render(); }
+  });
+  return el;
+}
+
+// ---------- Buttons ----------
+document.getElementById('btnHoy').addEventListener('click', ()=>{
+  const d=new Date(); document.getElementById('fDesde').value=toDateInput(d); document.getElementById('fHasta').value=toDateInput(d); render();
+});
+document.getElementById('btnSemana').addEventListener('click', ()=>{
+  const s=startOfWeek(new Date()), e=endOfWeek(new Date());
+  document.getElementById('fDesde').value=toDateInput(s); document.getElementById('fHasta').value=toDateInput(e); render();
+});
+document.getElementById('btnTodas').addEventListener('click', ()=>{
+  document.getElementById('fDesde').value=''; document.getElementById('fHasta').value=''; render();
+});
+['fDesde','fHasta','fVendedor','fGestor','fEstatus'].forEach(id=> document.getElementById(id).addEventListener('change', render));
+document.getElementById('btnLimpiar').addEventListener('click', ()=>{ ['fDesde','fHasta','fVendedor','fGestor','fEstatus'].forEach(id=>document.getElementById(id).value=''); render(); });
+
+// Export CSV
+function exportCSV(rows){
+  const headers = ['id','cod','cliente','vendedor','gestor','fecha','hora','estatus','obs'];
+  const csv = [headers.join(',')].concat(rows.map(r=> headers.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='agenda_export.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  exportCSV(applyFilters([...DATA]));
+});
+
+// Init
+render();
+</script>
+</body>
+</html>
