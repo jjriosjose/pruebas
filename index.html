@@ -1,0 +1,216 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Logística & Almacén — Pedidos (ULTRA)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+:root{ --ink:#0b3a55; --brand:#0ea5e9; --brand2:#2563eb }
+body{background:#f5f7fb;color:#0f172a}
+.navbar{background:#0f172a;color:#e5eef9;position:sticky;top:0;z-index:40}
+.kpi{background:#fff;border:1px solid #e5e7eb;border-radius:.8rem;padding:.8rem 1rem}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:.8rem}
+.btn{background:var(--brand);color:#fff;border-radius:.55rem;padding:.45rem .85rem}
+.btn:hover{filter:brightness(.95)}
+.tab{border:1px solid #e5e7eb;border-radius:.6rem;padding:.4rem .75rem;background:#fff;cursor:pointer;white-space:nowrap}
+.tab.active{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+.chip{border:1px solid #e5e7eb;border-radius:9999px;padding:.2rem .55rem;background:#fff;cursor:pointer;white-space:nowrap}
+.chip.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.badge{background:#eef6ff;border:1px solid #dbeafe;color:#0b3a55;border-radius:9999px;padding:2px 10px;font-size:12px}
+#map{height:52vh;border-radius:.8rem;border:1px solid #e5e7eb}
+@media (min-width: 768px){ #map{height:60vh} }
+.table th{font-size:.8rem;text-transform:uppercase;color:#334155;background:#f3f4f6}
+.table td{border-top:1px solid #f1f5f9}
+.link{color:#2563eb;cursor:pointer;text-decoration:underline}
+.toast{position:fixed;right:1rem;bottom:1rem;background:#fee2e2;color:#7f1d1d;border:1px solid #fecaca;border-radius:.6rem;padding:.6rem .8rem;display:none;z-index:9999}
+.toast.show{display:block}
+.debug{font-size:11px;color:#64748b}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="max-w-7xl mx-auto flex items-center justify-between p-3">
+    <div class="flex items-center gap-3">
+      <img src="./logo.png" class="h-8 w-8 object-contain" alt="Logo"/>
+      <div class="text-lg font-semibold">Logística & Almacén</div>
+    </div>
+    <div class="flex gap-3 items-center text-xs sm:text-sm">
+      <span id="lastUpdate" class="opacity-80 hidden sm:block"></span>
+      <button id="refreshBtn" class="btn">Actualizar</button>
+    </div>
+  </div>
+</nav>
+
+<header class="bg-white border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 py-4 sm:py-5">
+    <h1 class="text-xl sm:text-2xl font-bold" style="color:var(--ink)">Sistema de Gestión de Pedidos</h1>
+    <p class="text-xs sm:text-sm text-gray-500">Enlace estricto por <b>Cod Empresa</b>. Auto-corrección de formatos (empresa+codigo / solo código).</p>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="kpi"><div class="text-xs sm:text-sm">Pendientes</div><div id="kpiPendientes" class="text-xl sm:text-2xl font-semibold">—</div></div>
+    <div class="kpi"><div class="text-xs sm:text-sm">Hoy</div><div id="kpiHoy" class="text-xl sm:text-2xl font-semibold">—</div></div>
+    <div class="kpi"><div class="text-xs sm:text-sm">En ruta</div><div id="kpiRuta" class="text-xl sm:text-2xl font-semibold">—</div></div>
+    <div class="kpi"><div class="text-xs sm:text-sm">Entregados 7d</div><div id="kpiEntregados" class="text-xl sm:text-2xl font-semibold">—</div></div>
+  </section>
+
+  <section class="card p-3">
+    <div class="flex flex-wrap gap-2 items-center">
+      <div class="tab active" data-tab="todos">Todos</div>
+      <div class="tab" data-tab="pendientes">Pendientes</div>
+      <div class="tab" data-tab="facturados">Facturados</div>
+      <div class="tab" data-tab="entregados">Entregados</div>
+
+      <div class="w-full md:w-auto"></div>
+
+      <div class="flex items-center gap-2 text-xs sm:text-sm">
+        <span>Empresa:</span>
+        <span class="chip active" data-empresa="">Todas</span>
+        <span class="chip" data-empresa="karaka">karaka</span>
+        <span class="chip" data-empresa="distribuidora">distribuidora</span>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs sm:text-sm">
+        <label class="text-gray-600" for="selVendedor">Vendedor:</label>
+        <select id="selVendedor" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white"><option value="">Todos</option></select>
+        <label class="text-gray-600 ml-1 sm:ml-2" for="selGestor">Gestor:</label>
+        <select id="selGestor" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white"><option value="">Todos</option></select>
+      </div>
+
+      <div class="flex items-center gap-2 ml-auto">
+        <input id="q" type="search" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 w-44 sm:w-64 bg-white" placeholder="Buscar pedido/cliente/estado">
+        <input id="fDesde" type="date" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white">
+        <input id="fHasta" type="date" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white">
+      </div>
+    </div>
+    <div class="mt-2 debug" id="helpText"></div>
+  </section>
+
+  <section class="card p-3">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">🗺️ Mapa de Pedidos</h3>
+      <div class="flex items-center gap-4">
+        <div class="debug" id="debugText"></div>
+        <button id="toggleMap" class="link text-xs sm:text-sm">Ocultar mapa</button>
+      </div>
+    </div>
+    <div id="mapWrap"><div id="map"></div></div>
+  </section>
+
+  <section class="grid lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 card">
+      <div class="flex items-center justify-between p-3">
+        <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">📋 Pedidos</h3>
+        <button id="toggleTable" class="link text-xs sm:text-sm">Ocultar tabla</button>
+      </div>
+      <div id="tableWrap" class="overflow-auto">
+        <table class="w-full table min-w-[980px]">
+          <thead>
+            <tr>
+              <th class="text-left px-2 sm:px-3 py-2">Pedido</th>
+              <th class="text-left px-2 sm:px-3 py-2">Cliente</th>
+              <th class="text-left px-2 sm:px-3 py-2">Cod Empresa</th>
+              <th class="text-left px-2 sm:px-3 py-2">Fecha</th>
+              <th class="text-left px-2 sm:px-3 py-2">Estado</th>
+              <th class="text-left px-2 sm:px-3 py-2">Empresa</th>
+              <th class="text-left px-2 sm:px-3 py-2">Vendedor</th>
+              <th class="text-left px-2 sm:px-3 py-2">Gestor</th>
+              <th class="text-left px-2 sm:px-3 py-2">Valor</th>
+              <th class="text-left px-2 sm:px-3 py-2">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody" class="text-xs sm:text-sm"></tbody>
+        </table>
+      </div>
+      <div class="p-3 debug" id="mismatch"></div>
+    </div>
+    <div class="card p-3">
+      <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">📊 Estados</h3>
+      <canvas id="chartEstados" height="220"></canvas>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast">Error</div>
+
+<script>
+const CONFIG={
+  sheets:{
+    clientesCsvUrl:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=193390473&single=true&output=csv",
+    pedidosKarakaCsvUrl:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=1945180719&single=true&output=csv",
+    pedidosDistribuidoraCsvUrl:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=919779363&single=true&output=csv"
+  }
+};
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),4000);}
+const norm=s=>(s??'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
+const canon=s=>norm(String(s||'').replace(/[^a-zA-Z0-9]/g,''));
+function smartFloat(x){if(x==null)return null;let s=String(x).trim();if(!s)return null;s=s.replace(/\s+/g,'');if(/\d+\.\d+,\d+/.test(s)){s=s.replace(/\./g,'');s=s.replace(',', '.');}else if(/\d+,\d+\.\d+/.test(s)){s=s.replace(/,/g,'');}else if(/^\d+,\d+$/.test(s)){s=s.replace(',', '.');}const n=parseFloat(s);return Number.isFinite(n)?n:null;}
+function excelDateToISO(num){const base=new Date(Date.UTC(1899,11,30));const d=new Date(base.getTime()+num*86400000);return d.toISOString().slice(0,10);}
+function dmyToISO(s){const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);if(!m)return'';const[_,d,mo,y]=m;return`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function mdyToISO(s){const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);if(!m)return'';const[_,mo,d,y]=m;return`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function detectAndISO(s){const parts=s.split(/[\/\-]/);if(parts.length===3){const[a,b,c]=parts.map(x=>parseInt(x,10));if(!isNaN(a)&&!isNaN(b)&&!isNaN(c)){if(a>12)return dmyToISO(s);if(b>12)return mdyToISO(s);return dmyToISO(s);}}return'';}
+function toISO(v){if(v==null)return'';const s=String(v).trim();if(!s)return'';if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(s))return detectAndISO(s);const num=Number(s);if(Number.isFinite(num))return excelDateToISO(num);const d=new Date(s);if(!isNaN(d))return d.toISOString().slice(0,10);return'';}
+async function fetchCsv(url,label){const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(label+': HTTP '+res.status);const text=await res.text();const parsed=Papa.parse(text,{header:true,skipEmptyLines:'greedy'});if(parsed.errors?.length)console.warn('Papa errors',parsed.errors.slice(0,3));return parsed.data.map(r=>{const c={};for(const k in r){const v=typeof r[k]==='string'?r[k].replace(/\uFEFF/g,'').trim():r[k];c[k.replace(/\uFEFF/g,'').trim()]=v;}return c;});}
+const COLS={
+  codEmpresa:[ 'Cod Empresa','COD EMPRESA','Cod_Empresa','CodEmpresa','cod empresa','cod_empresa','codempresa','codigo empresa','codigo_empresa','Cod Cliente/Empresa','COD CLIENTE/EMPRESA','cod cliente/empresa','Cod Cliente - Empresa','Código Cliente/Empresa','Codigo Cliente/Empresa','Codigo Cliente Empresa','CodClienteEmpresa','Codigo' ],
+  empresaHoja:['Empresa','empresa','EMPRESA'],
+  nombreCliente:['Razon Social','Razón Social','RAZON SOCIAL','Cliente','NOMBRE','Nombre','Nombre Cliente','Nombre cliente','cliente','CLIENTE','Nombre/Razón'],
+  lat:['latitud','Latitud','LATITUD','lat','Lat','LAT','Lat (Y)'],
+  lon:['longitud','Longitud','LONGITUD','lon','Lon','LON','lng','Lng','LNG','Long (X)'],
+  pedidoId:['PEDIDO #','Pedido','PEDIDO','Pedido #','No Pedido','Nº Pedido','N° Pedido','Pedido N°'],
+  fecha:['FECHA','Fecha','fecha','Fecha Pedido','FECHA PEDIDO'],
+  estado:['ESTADO','Estado','estado','Estatus','ESTATUS','Estatus Pedido'],
+  valor:['VALOR','Valor','Total','Monto','Total Neto'],
+  vendedor:['Vendedor','VENDEDOR','Asesor','Comercial','Ejecutivo','Representante','Sales','Seller'],
+  gestor:['Gestor','GESTOR','Repartidor','Transportista','Driver','Responsable','RESPONSABLE','Mensajero','Encargado']
+};
+function getFirst(row,keys){for(const k of keys){if(row[k]!==undefined&&String(row[k]).trim()!=='')return String(row[k]).trim();}const idx={};for(const k in row){idx[norm(k)]=k;}for(const k of keys){const f=idx[norm(k)];if(f&&String(row[f]).trim()!=='')return String(row[f]).trim();}return'';}
+
+let state={clientes:[],pedidos:[],byClientKey:new Map(),map:null,markers:[],markerByKey:{},chart:null,ui:{tab:'todos',empresa:'',q:'',desde:'',hasta:'',ven:'',ges:''}};
+
+function buildClientIndex(clis){const map=new Map();clis.forEach(c=>{const code=String(c.codEmpresa||'').trim();const emp=String(c.empresa||'').trim();const key1=canon(code);const key2=canon(emp+code);if(key1)map.set(key1,c);if(key2)map.set(key2,c);});return map;}
+
+async function loadData(){
+  try{
+    const [rawC,rawK,rawD]=await Promise.all([fetchCsv(CONFIG.sheets.clientesCsvUrl,'Clientes'),fetchCsv(CONFIG.sheets.pedidosKarakaCsvUrl,'Karaka'),fetchCsv(CONFIG.sheets.pedidosDistribuidoraCsvUrl,'Distribuidora')]);
+    const clients=rawC.map(c=>({codEmpresa:getFirst(c,COLS.codEmpresa),empresa:(getFirst(c,COLS.empresaHoja)||'').toLowerCase(),nombre:getFirst(c,COLS.nombreCliente)||getFirst(c,COLS.codEmpresa),lat:smartFloat(getFirst(c,COLS.lat)),lon:smartFloat(getFirst(c,COLS.lon)),vendedor:getFirst(c,COLS.vendedor)||'',gestor:getFirst(c,COLS.gestor)||''})).filter(c=>String(c.codEmpresa||'').trim()!=='');    
+    state.byClientKey=buildClientIndex(clients);
+    state.clientes=clients;
+    const rawOrders=[...rawK.map(p=>({...p,EmpresaHoja:'karaka'})),...rawD.map(p=>({...p,EmpresaHoja:'distribuidora'}))];
+    const orders=rawOrders.map(p=>{const empresa=(p.EmpresaHoja||'').toString().toLowerCase();const codeRaw=getFirst(p,COLS.codEmpresa);const k1=canon(codeRaw);const k2=canon(empresa+codeRaw);const cli=state.byClientKey.get(k2)||state.byClientKey.get(k1)||null;const vendedor=getFirst(p,COLS.vendedor)||(cli?cli.vendedor:'')||'';const gestor=getFirst(p,COLS.gestor)||(cli?cli.gestor:'')||'';return{id:getFirst(p,COLS.pedidoId),cliente:getFirst(p,COLS.nombreCliente)||(cli?cli.nombre:''),codEmpresa:codeRaw,fecha:toISO(getFirst(p,COLS.fecha)),estado:getFirst(p,COLS.estado),valor:getFirst(p,COLS.valor),vendedor,gestor,empresa,clientKey:cli?(state.byClientKey.get(k2)?k2:k1):'',clienteRef:cli};});
+    state.pedidos=orders;
+    populatePeopleFilters();computeKPIs();renderAll();
+    const dt=new Date();document.getElementById('lastUpdate').textContent=`Actualizado: ${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
+  }catch(e){console.error(e);toast('No se pudieron cargar datos: '+e.message);}
+}
+
+function computeKPIs(){const today=new Date().toISOString().slice(0,10);const pend=state.pedidos.filter(p=>norm(p.estado).includes('pend')).length;const ruta=state.pedidos.filter(p=>norm(p.estado).includes('ruta')).length;const entr=state.pedidos.filter(p=>/final|entreg/.test(norm(p.estado))).length;const hoy=state.pedidos.filter(p=>p.fecha===today).length;document.getElementById('kpiPendientes').textContent=pend;document.getElementById('kpiRuta').textContent=ruta;document.getElementById('kpiEntregados').textContent=entr;document.getElementById('kpiHoy').textContent=hoy;}
+
+function uniqueNormalized(list){const map=new Map();list.forEach(v=>{const t=String(v||'').trim();if(!t)return;const k=norm(t);if(!map.has(k))map.set(k,t);});return[...map.values()].sort((a,b)=>a.localeCompare(b));}
+function populatePeopleFilters(){const selV=document.getElementById('selVendedor');const selG=document.getElementById('selGestor');selV.innerHTML='<option value="">Todos</option>';selG.innerHTML='<option value="">Todos</option>';const vVals=uniqueNormalized(state.pedidos.map(p=>p.vendedor).filter(Boolean));const gVals=uniqueNormalized(state.pedidos.map(p=>p.gestor).filter(Boolean));const vCount={},gCount={};state.pedidos.forEach(p=>{if(p.vendedor){const k=norm(p.vendedor);vCount[k]=(vCount[k]||0)+1;}});state.pedidos.forEach(p=>{if(p.gestor){const k=norm(p.gestor);gCount[k]=(gCount[k]||0)+1;}});vVals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=`${v} (${vCount[norm(v)]||0})`;selV.appendChild(o);});gVals.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=`${g} (${gCount[norm(g)]||0})`;selG.appendChild(o);});document.getElementById('helpText').textContent=`Vendedores con pedidos: ${vVals.length} • Gestores con pedidos: ${gVals.length}`;}
+
+function applyFilters(rows){const ui=state.ui;return rows.filter(p=>{const e=norm(p.estado);let okTab=true;if(ui.tab==='pendientes')okTab=e.includes('pend');else if(ui.tab==='facturados')okTab=e.includes('fact');else if(ui.tab==='entregados')okTab=/final|entreg/.test(e);const okEmp=!ui.empresa||p.empresa===ui.empresa;const q=(ui.q||'').toLowerCase();const okQ=!q||String(p.id||'').toLowerCase().includes(q)||(p.cliente||'').toLowerCase().includes(q)||e.includes(q)||(p.codEmpresa||'').toLowerCase().includes(q);const okDesde=!ui.desde||(p.fecha&&p.fecha>=ui.desde);const okHasta=!ui.hasta||(p.fecha&&p.fecha<=ui.hasta);const okVen=!ui.ven||norm(p.vendedor)===norm(ui.ven);const okGes=!ui.ges||norm(p.gestor)===norm(ui.ges);return okTab&&okEmp&&okQ&&okDesde&&okHasta&&okVen&&okGes;});}
+
+function renderTable(){const tbody=document.getElementById('tbody');tbody.innerHTML='';state.ui.q=(document.getElementById('q').value||'').trim();state.ui.desde=document.getElementById('fDesde').value||'';state.ui.hasta=document.getElementById('fHasta').value||'';state.ui.ven=document.getElementById('selVendedor').value||'';state.ui.ges=document.getElementById('selGestor').value||'';const data=applyFilters(state.pedidos);for(const p of data){const tr=document.createElement('tr');tr.innerHTML=`<td class="px-2 sm:px-3 py-2">${p.id||''}</td><td class="px-2 sm:px-3 py-2">${p.cliente||''}</td><td class="px-2 sm:px-3 py-2">${p.codEmpresa||''}</td><td class="px-2 sm:px-3 py-2">${p.fecha||''}</td><td class="px-2 sm:px-3 py-2">${p.estado||''}</td><td class="px-2 sm:px-3 py-2"><span class="badge">${p.empresa||''}</span></td><td class="px-2 sm:px-3 py-2">${p.vendedor||''}</td><td class="px-2 sm:px-3 py-2">${p.gestor||''}</td><td class="px-2 sm:px-3 py-2">${p.valor||''}</td><td class="px-2 sm:px-3 py-2"><button class="btn text-xs sm:text-sm" data-key="${p.clientKey}">Ver</button></td>`;tbody.appendChild(tr);}tbody.querySelectorAll('button[data-key]').forEach(b=>b.addEventListener('click',e=>{focusMarkerByKey(e.currentTarget.getAttribute('data-key'));}));const miss=data.filter(p=>!p.clientKey||!p.clienteRef).slice(0,10);const mism=document.getElementById('mismatch');if(miss.length){mism.innerHTML='<b>Pedidos sin cliente enlazado (muestra 10):</b><br/>'+miss.map(p=>`• Pedido ${p.id||'(sin id)'} — Empresa:${p.empresa} — Código:"${p.codEmpresa}"`).join('<br/>');}else mism.innerHTML='';}
+
+function initMap(){state.map=L.map('map').setView([18.5,-69.9],8);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(state.map);}
+function renderMap(){state.markers.forEach(m=>m.remove());state.markers=[];state.markerByKey={};const filtered=applyFilters(state.pedidos);const used=filtered.map(p=>p.clientKey).filter(Boolean);const set=new Set(used);let ok=0,noGeo=0,noCli=0,sinKey=filtered.length-used.length;for(const key of set){const cli=state.byClientKey.get(key);if(!cli){noCli++;continue;}if(cli.lat==null||cli.lon==null){noGeo++;continue;}const m=L.marker([cli.lat,cli.lon]).addTo(state.map);m.bindPopup(`<b>${cli.nombre||''}</b><br/>Cod Empresa: ${cli.codEmpresa}${cli.vendedor?'<br/>Vendedor: '+cli.vendedor:''}${cli.gestor?'<br/>Gestor: '+cli.gestor:''}`);state.markers.push(m);state.markerByKey[key]=m;ok++;}document.getElementById('debugText').textContent=`Filtrados:${filtered.length} • Con clave:${used.length} • Sin clave:${sinKey} • Pines:${ok} • Sin coord:${noGeo} • Sin cliente:${noCli}`;}
+function focusMarkerByKey(key){const m=state.markerByKey[key];if(m){state.map.setView(m.getLatLng(),14);m.openPopup();}else toast('No hay pin (revise coordenadas/código).');}
+function renderChart(){const ctx=document.getElementById('chartEstados');const filtered=applyFilters(state.pedidos);const countBy={};filtered.forEach(p=>{const e=p.estado||'N/D';countBy[e]=(countBy[e]||0)+1;});const pairs=Object.entries(countBy).sort((a,b)=>b[1]-a[1]).slice(0,6);const labels=pairs.map(p=>p[0]);const data=pairs.map(p=>p[1]);if(state.chart)state.chart.destroy();state.chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Pedidos',data}]},options:{plugins:{legend:{display:false}}}});}
+
+function renderAll(){renderTable();renderMap();renderChart();}
+function bindUI(){document.querySelectorAll('.tab[data-tab]').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('.tab[data-tab]').forEach(t=>t.classList.remove('active'));el.classList.add('active');state.ui.tab=el.dataset.tab;renderAll();}));document.querySelectorAll('.chip').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('.chip').forEach(t=>t.classList.remove('active'));el.classList.add('active');state.ui.empresa=el.dataset.empresa||'';renderAll();}));['q','fDesde','fHasta','selVendedor','selGestor'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAll);el.addEventListener('change',renderAll);});const toggleT=document.getElementById('toggleTable');const wrapT=document.getElementById('tableWrap');toggleT.addEventListener('click',()=>{if(wrapT.style.display==='none'){wrapT.style.display='block';toggleT.textContent='Ocultar tabla';}else{wrapT.style.display='none';toggleT.textContent='Mostrar tabla';}});const toggleM=document.getElementById('toggleMap');const wrapM=document.getElementById('mapWrap');toggleM.addEventListener('click',()=>{if(wrapM.style.display==='none'){wrapM.style.display='block';toggleM.textContent='Ocultar mapa';setTimeout(()=>state.map.invalidateSize(),200);}else{wrapM.style.display='none';toggleM.textContent='Mostrar mapa';}});document.getElementById('refreshBtn').addEventListener('click',async()=>{await loadData();toast('Datos actualizados');});}
+window.addEventListener('DOMContentLoaded',async()=>{bindUI();initMap();await loadData();});
+</script>
+</body>
+</html>
