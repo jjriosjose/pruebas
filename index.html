@@ -1,0 +1,1030 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Logística 360 — Empresarial</title>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- PapaParse -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+:root{ --ink:#0b3a55; --brand:#0ea5e9; --brand2:#2563eb; --bg:#f5f7fb }
+body{background:var(--bg);color:#0f172a}
+.navbar{background:#0f172a;color:#e5eef9;position:sticky;top:0;z-index:50}
+.kpi{background:#fff;border:1px solid #e5e7eb;border-radius:.8rem;padding:.8rem 1rem}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:.8rem}
+.btn{background:var(--brand);color:#fff;border-radius:.55rem;padding:.45rem .85rem}
+.btn.secondary{background:#e5e7eb;color:#0f172a}
+.btn.danger{background:#ef4444}
+.btn:hover{filter:brightness(.95)}
+.tab{border:1px solid #e5e7eb;border-radius:.6rem;padding:.4rem .75rem;background:#fff;cursor:pointer;white-space:nowrap}
+.tab.active{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+.chip{border:1px solid #e5e7eb;border-radius:9999px;padding:.2rem .55rem;background:#fff;cursor:pointer;white-space:nowrap}
+.chip.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.badge{background:#eef6ff;border:1px solid #dbeafe;color:#0b3a55;border-radius:9999px;padding:2px 10px;font-size:12px}
+#map{height:52vh;border-radius:.8rem;border:1px solid #e5e7eb}
+@media (min-width: 768px){ #map{height:60vh} }
+.table th{font-size:.8rem;text-transform:uppercase;color:#334155;background:#f3f4f6}
+.table td{border-top:1px solid #f1f5f9}
+.link{color:#2563eb;cursor:pointer;text-decoration:underline}
+.toast{position:fixed;right:1rem;bottom:1rem;background:#111827;color:#f9fafb;border:1px solid #1f2937;border-radius:.6rem;padding:.6rem .8rem;display:none;z-index:9999}
+.toast.show{display:block}
+.debug{font-size:11px;color:#64748b}
+.section{display:none}
+.section.active{display:block}
+input, select, textarea{background:#fff}
+fieldset{border:1px dashed #e5e7eb;padding:10px;border-radius:.6rem}
+legend{color:#64748b;font-size:12px;padding:0 6px}
+canvas.sig{border:1px solid #e5e7eb;border-radius:.5rem;background:#fff}
+.preview{max-height:140px;border:1px solid #e5e7eb;border-radius:.5rem}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="max-w-7xl mx-auto flex items-center justify-between p-3">
+    <div class="flex items-center gap-3">
+      <img src="./logo.png" class="h-8 w-8 object-contain" alt="Logo"/>
+      <div class="text-lg font-semibold">Logística 360</div>
+    </div>
+    <div class="flex gap-3 items-center text-xs sm:text-sm">
+      <div class="hidden sm:block" id="lastUpdate"></div>
+      <button id="refreshBtn" class="btn">Actualizar</button>
+    </div>
+  </div>
+  <div class="max-w-7xl mx-auto p-2 flex flex-wrap gap-2">
+    <button class="tab active" data-section="secPedidos">Pedidos</button>
+    <button class="tab" data-section="secDespachos">Despachos</button>
+    <button class="tab" data-section="secEntregas">Entregas</button>
+    <button class="tab" data-section="secIncidencias">Incidencias</button>
+    <button class="tab" data-section="secKPIs">KPIs</button>
+    <button class="tab" data-section="secAuditoria">Auditoría</button>
+    <button class="tab" data-section="secConfig">Config</button>
+  </div>
+</nav>
+
+<!-- PEDIDOS -->
+<section id="secPedidos" class="section active">
+  <header class="bg-white border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:py-5">
+      <h1 class="text-xl sm:text-2xl font-bold" style="color:var(--ink)">Pedidos & Mapa</h1>
+      <p class="text-xs sm:text-sm text-gray-500">Enlace por <b>Cod Empresa</b>. Gestor desde <b>gestor_servicio</b> cuando falte en pedido.</p>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="kpi"><div class="text-xs sm:text-sm">Pendientes</div><div id="kpiPendientes" class="text-xl sm:text-2xl font-semibold">—</div></div>
+      <div class="kpi"><div class="text-xs sm:text-sm">Hoy</div><div id="kpiHoy" class="text-xl sm:text-2xl font-semibold">—</div></div>
+      <div class="kpi"><div class="text-xs sm:text-sm">En ruta</div><div id="kpiRuta" class="text-xl sm:text-2xl font-semibold">—</div></div>
+      <div class="kpi"><div class="text-xs sm:text-sm">Entregados 7d</div><div id="kpiEntregados" class="text-xl sm:text-2xl font-semibold">—</div></div>
+    </section>
+
+    <section class="card p-3">
+      <div class="flex flex-wrap gap-2 items-center">
+        <div class="tab active" data-tab="todos">Todos</div>
+        <div class="tab" data-tab="pendientes">Pendientes</div>
+        <div class="tab" data-tab="facturados">Facturados</div>
+        <div class="tab" data-tab="entregados">Entregados</div>
+
+        <div class="w-full md:w-auto"></div>
+
+        <div class="flex items-center gap-2 text-xs sm:text-sm">
+          <span>Empresa:</span>
+          <span class="chip active" data-empresa="">Todas</span>
+          <span class="chip" data-empresa="karaka">karaka</span>
+          <span class="chip" data-empresa="distribuidora">distribuidora</span>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs sm:text-sm">
+          <label class="text-gray-600" for="selVendedor">Vendedor:</label>
+          <select id="selVendedor" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white"><option value="">Todos</option></select>
+          <label class="text-gray-600 ml-1 sm:ml-2" for="selGestor">Gestor:</label>
+          <select id="selGestor" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white"><option value="">Todos</option></select>
+          <label class="text-gray-600 ml-1 sm:ml-2" for="selProvincia">Provincia:</label>
+          <select id="selProvincia" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white"><option value="">Todas</option></select>
+        </div>
+
+        <div class="flex items-center gap-2 ml-auto">
+          <input id="q" type="search" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 w-44 sm:w-64 bg-white" placeholder="Buscar pedido/cliente/estado">
+          <input id="fDesde" type="date" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white">
+          <input id="fHasta" type="date" class="border border-gray-300 rounded-md px-2 sm:px-3 py-1 bg-white">
+        </div>
+      </div>
+      <div class="mt-2 debug" id="helpText"></div>
+    </section>
+
+    <section class="card p-3">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">🗺️ Mapa de Pedidos</h3>
+        <div class="flex items-center gap-4">
+          <div class="debug" id="debugText"></div>
+          <button id="toggleMap" class="link text-xs sm:text-sm">Ocultar mapa</button>
+        </div>
+      </div>
+      <div id="mapWrap"><div id="map"></div></div>
+    </section>
+
+    <section class="grid lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card">
+        <div class="flex items-center justify-between p-3">
+          <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">📋 Pedidos</h3>
+          <button id="toggleTable" class="link text-xs sm:text-sm">Ocultar tabla</button>
+        </div>
+        <div id="tableWrap" class="overflow-auto">
+          <table class="w-full table min-w-[1000px]">
+            <thead>
+              <tr>
+                <th class="text-left px-2 sm:px-3 py-2">Pedido</th>
+                <th class="text-left px-2 sm:px-3 py-2">Cliente</th>
+                <th class="text-left px-2 sm:px-3 py-2">Cod Empresa</th>
+                <th class="text-left px-2 sm:px-3 py-2">Fecha</th>
+                <th class="text-left px-2 sm:px-3 py-2">Estado</th>
+                <th class="text-left px-2 sm:px-3 py-2">Empresa</th>
+                <th class="text-left px-2 sm:px-3 py-2">Vendedor</th>
+                <th class="text-left px-2 sm:px-3 py-2">Gestor</th>
+                <th class="text-left px-2 sm:px-3 py-2">Provincia</th>
+                <th class="text-left px-2 sm:px-3 py-2">Valor</th>
+                <th class="text-left px-2 sm:px-3 py-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="text-xs sm:text-sm"></tbody>
+          </table>
+        </div>
+        <div class="p-3 debug" id="mismatch"></div>
+      </div>
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">📊 Estados</h3>
+        <canvas id="chartEstados" height="220"></canvas>
+      </div>
+    </section>
+  </main>
+</section>
+
+<!-- DESPACHOS -->
+<section id="secDespachos" class="section">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Planificador de Despachos</h3>
+      <div class="grid md:grid-cols-4 gap-3 mt-2">
+        <div>
+          <label class="text-xs text-gray-600">Fecha</label>
+          <input type="date" id="despFecha" class="w-full border border-gray-300 rounded-md px-2 py-1"/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Gestor</label>
+          <select id="despGestor" class="w-full border border-gray-300 rounded-md px-2 py-1"><option value="">Seleccione</option></select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Vehículo</label>
+          <input id="despVehiculo" class="w-full border border-gray-300 rounded-md px-2 py-1" placeholder="Placa / Interno"/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Ventana Horaria</label>
+          <input id="despVentana" class="w-full border border-gray-300 rounded-md px-2 py-1" placeholder="08:00-12:00"/>
+        </div>
+      </div>
+      <div class="mt-3">
+        <label class="text-xs text-gray-600">Seleccionar pedidos (checkbox)</label>
+        <div id="despPedidos" class="max-h-56 overflow-auto border border-gray-200 rounded p-2 bg-white"></div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button id="btnCrearDespacho" class="btn">Crear despacho</button>
+        <button id="btnExportDespachos" class="btn secondary">Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Rutas creadas</h3>
+      <div class="overflow-auto">
+        <table class="w-full table min-w-[900px]">
+          <thead><tr>
+            <th class="text-left px-2 py-2">Fecha</th>
+            <th class="text-left px-2 py-2">Ruta ID</th>
+            <th class="text-left px-2 py-2">Gestor</th>
+            <th class="text-left px-2 py-2">Vehículo</th>
+            <th class="text-left px-2 py-2">Ventana</th>
+            <th class="text-left px-2 py-2">Pedidos</th>
+            <th class="text-left px-2 py-2">Estado Ruta</th>
+            <th class="text-left px-2 py-2">Acciones</th>
+          </tr></thead>
+          <tbody id="tbodyDespachos" class="text-xs sm:text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ENTREGAS -->
+<section id="secEntregas" class="section">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Entrega en Ruta (Foto + Firma + GPS)</h3>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div>
+          <label class="text-xs text-gray-600">Pedido</label>
+          <input list="dlPedidos" id="entPedidoId" class="w-full border border-gray-300 rounded-md px-2 py-1" placeholder="ID Pedido"/>
+          <datalist id="dlPedidos"></datalist>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Cod Empresa</label>
+          <input id="entCodEmp" class="w-full border border-gray-300 rounded-md px-2 py-1" readonly/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Cliente</label>
+          <input id="entCliente" class="w-full border border-gray-300 rounded-md px-2 py-1" readonly/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Empresa</label>
+          <input id="entEmpresa" class="w-full border border-gray-300 rounded-md px-2 py-1" readonly/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Gestor</label>
+          <input id="entGestor" class="w-full border border-gray-300 rounded-md px-2 py-1" readonly/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Estado de entrega</label>
+          <select id="entEstado" class="w-full border border-gray-300 rounded-md px-2 py-1">
+            <option>Entregado</option>
+            <option>Entregado Parcial</option>
+            <option>Devuelto</option>
+            <option>Reprogramado</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Observaciones</label>
+          <textarea id="entObs" class="w-full border border-gray-300 rounded-md px-2 py-1" rows="2" placeholder="Notas de entrega"></textarea>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Foto factura/entrega</label>
+          <input id="entFoto" type="file" accept="image/*" capture="environment" class="w-full"/>
+          <img id="entFotoPrev" class="preview mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Firma del cliente</label>
+          <div class="space-y-1">
+            <canvas id="entFirma" class="sig" width="300" height="150"></canvas><br/>
+            <button id="btnClearFirma" class="btn secondary text-xs">Limpiar firma</button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Ubicación</label>
+          <div class="flex gap-2">
+            <button id="btnGPS" class="btn">Tomar GPS</button>
+            <div id="entGPS" class="text-xs text-gray-600 self-center"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button id="btnGuardarEntrega" class="btn">Guardar entrega</button>
+        <button id="btnExportEntregas" class="btn secondary">Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Entregas registradas (sesión)</h3>
+      <div class="overflow-auto">
+        <table class="w-full table min-w-[1000px]">
+          <thead><tr>
+            <th class="text-left px-2 py-2">Fecha/Hora</th>
+            <th class="text-left px-2 py-2">Pedido</th>
+            <th class="text-left px-2 py-2">Cliente</th>
+            <th class="text-left px-2 py-2">Gestor</th>
+            <th class="text-left px-2 py-2">Estado</th>
+            <th class="text-left px-2 py-2">Lat</th><th class="text-left px-2 py-2">Lon</th><th class="text-left px-2 py-2">Prec.</th>
+            <th class="text-left px-2 py-2">Obs</th>
+            <th class="text-left px-2 py-2">Foto</th>
+            <th class="text-left px-2 py-2">Firma</th>
+          </tr></thead>
+          <tbody id="tbodyEntregas" class="text-xs sm:text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INCIDENCIAS -->
+<section id="secIncidencias" class="section">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Incidencias / Devoluciones</h3>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div>
+          <label class="text-xs text-gray-600">Pedido</label>
+          <input list="dlPedidos2" id="incPedidoId" class="w-full border border-gray-300 rounded-md px-2 py-1"/>
+          <datalist id="dlPedidos2"></datalist>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Tipo</label>
+          <select id="incTipo" class="w-full border border-gray-300 rounded-md px-2 py-1">
+            <option>No ubicado</option><option>Cliente ausente</option><option>Dirección incorrecta</option><option>Dañado</option><option>Reprogramado</option><option>Otro</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Descripción</label>
+          <textarea id="incDesc" class="w-full border border-gray-300 rounded-md px-2 py-1" rows="2"></textarea>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Foto</label>
+          <input id="incFoto" type="file" accept="image/*" capture="environment" class="w-full"/>
+          <img id="incFotoPrev" class="preview mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600">Ubicación</label>
+          <div class="flex gap-2">
+            <button id="btnGPSInc" class="btn">Tomar GPS</button>
+            <div id="incGPS" class="text-xs text-gray-600 self-center"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button id="btnGuardarIncid" class="btn">Guardar incidencia</button>
+        <button id="btnExportIncid" class="btn secondary">Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Incidencias registradas (sesión)</h3>
+      <div class="overflow-auto">
+        <table class="w-full table min-w-[900px]">
+          <thead><tr>
+            <th class="text-left px-2 py-2">Fecha/Hora</th>
+            <th class="text-left px-2 py-2">Pedido</th>
+            <th class="text-left px-2 py-2">Tipo</th>
+            <th class="text-left px-2 py-2">Lat</th><th class="text-left px-2 py-2">Lon</th><th class="text-left px-2 py-2">Prec.</th>
+            <th class="text-left px-2 py-2">Descripción</th>
+            <th class="text-left px-2 py-2">Foto</th>
+          </tr></thead>
+          <tbody id="tbodyIncid" class="text-xs sm:text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- KPIs -->
+<section id="secKPIs" class="section">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <div class="grid md:grid-cols-3 gap-3">
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">Pedidos por Vendedor</h3>
+        <canvas id="kpiVendChart" height="220"></canvas>
+      </div>
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">Pedidos por Gestor</h3>
+        <canvas id="kpiGestChart" height="220"></canvas>
+      </div>
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">Pedidos por Provincia</h3>
+        <canvas id="kpiProvChart" height="220"></canvas>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-3">
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">Top Vendedores</h3>
+        <div id="kpiVendTbl" class="text-xs sm:text-sm"></div>
+      </div>
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">Top Gestores</h3>
+        <div id="kpiGestTbl" class="text-xs sm:text-sm"></div>
+      </div>
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2 text-sm sm:text-base" style="color:var(--ink)">Top Provincias</h3>
+        <div id="kpiProvTbl" class="text-xs sm:text-sm"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDITORÍA -->
+<section id="secAuditoria" class="section">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <div class="card p-3">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Bitácora</h3>
+        <button id="btnExportAudit" class="btn secondary">Exportar CSV</button>
+      </div>
+      <div class="overflow-auto">
+        <table class="w-full table min-w-[900px]">
+          <thead><tr>
+            <th class="text-left px-2 py-2">Fecha/Hora</th>
+            <th class="text-left px-2 py-2">Usuario/Rol</th>
+            <th class="text-left px-2 py-2">Acción</th>
+            <th class="text-left px-2 py-2">Entidad</th>
+            <th class="text-left px-2 py-2">ID</th>
+            <th class="text-left px-2 py-2">Detalle</th>
+          </tr></thead>
+          <tbody id="tbodyAudit" class="text-xs sm:text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIG -->
+<section id="secConfig" class="section">
+  <div class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+    <div class="card p-3">
+      <h3 class="font-semibold text-sm sm:text-base" style="color:var(--ink)">Parámetros & Conectores</h3>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div>
+          <label class="text-xs text-gray-600">Modo de escritura</label>
+          <select id="cfgWriteMode" class="w-full border border-gray-300 rounded-md px-2 py-1">
+            <option value="csv">CSV local (descargar)</option>
+            <option value="apps_script">Apps Script WebApp (Google Sheets)</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-gray-600">Apps Script URL (POST)</label>
+          <input id="cfgAppsUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec" class="w-full border border-gray-300 rounded-md px-2 py-1"/>
+        </div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button id="btnSaveConfig" class="btn">Guardar configuración</button>
+        <button id="btnPing" class="btn secondary">Probar conexión</button>
+      </div>
+      <div id="cfgMsg" class="debug mt-2"></div>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="toast">Mensaje</div>
+
+<script>
+const CONFIG={
+  sheets:{
+    clientesCsvUrl:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=193390473&single=true&output=csv",
+    pedidosKarakaCsvUrl:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=1945180719&single=true&output=csv",
+    pedidosDistribuidoraCsvUrl:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=919779363&single=true&output=csv"
+  },
+  write:{ mode:'csv', appsScriptUrl:'' }
+};
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
+const norm = s => (s??'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
+const canon = s => norm(String(s||'').replace(/[^a-zA-Z0-9]/g,''));
+function smartFloat(x){ if(x==null) return null; let s=String(x).trim(); if(!s) return null; s=s.replace(/\s+/g,''); if(/\d+\.\d+,\d+/.test(s)){ s=s.replace(/\./g,''); s=s.replace(',', '.'); } else if(/\d+,\d+\.\d+/.test(s)){ s=s.replace(/,/g,''); } else if(/^\d+,\d+$/.test(s)){ s=s.replace(',', '.'); } const n=parseFloat(s); return Number.isFinite(n)?n:null; }
+function excelDateToISO(num){ const base=new Date(Date.UTC(1899,11,30)); const d=new Date(base.getTime()+num*86400000); return d.toISOString().slice(0,10); }
+function dmyToISO(s){ const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); if(!m) return ''; const [_,d,mo,y]=m; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function mdyToISO(s){ const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); if(!m) return ''; const [_,mo,d,y]=m; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function detectAndISO(s){ const parts = s.split(/[\/\-]/); if(parts.length===3){ const [a,b,c]=parts.map(x=>parseInt(x,10)); if(!isNaN(a)&&!isNaN(b)&&!isNaN(c)){ if(a>12) return dmyToISO(s); if(b>12) return mdyToISO(s); return dmyToISO(s); } } return ''; }
+function toISO(value){ if(value===null||value===undefined) return ''; const s=String(value).trim(); if(s==='') return ''; if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(s)) return detectAndISO(s); const num=Number(s); if(Number.isFinite(num)) return excelDateToISO(num); const d=new Date(s); if(!isNaN(d)) return d.toISOString().slice(0,10); return ''; }
+async function fetchCsv(url,label){ const res=await fetch(url,{cache:'no-store'}); if(!res.ok) throw new Error(label+': HTTP '+res.status); const text=await res.text(); const parsed = Papa.parse(text,{header:true,skipEmptyLines:'greedy'}); if(parsed.errors?.length) console.warn('Papa errors', parsed.errors.slice(0,3)); return parsed.data.map(row=>{ const clean={}; for(const k in row){ const val = typeof row[k]==='string' ? row[k].replace(/\uFEFF/g,'').trim() : row[k]; clean[k.replace(/\uFEFF/g,'').trim()] = val; } return clean; }); }
+function dataURL(file, cb){ const r=new FileReader(); r.onload = ()=>cb(r.result); r.readAsDataURL(file); }
+function downloadCSV(filename, rows){ const csv = Papa.unparse(rows); const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; link.click(); }
+async function postAppsScript(resource, record){ const url=CONFIG.write.appsScriptUrl?.trim(); if(!url){ throw new Error('Apps Script URL no configurada'); } const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ resource, record }) }); if(!res.ok) throw new Error('HTTP '+res.status); const js = await res.json().catch(()=>({ok:true})); return js; }
+const COLS={
+  codEmpresa:[ 'Cod Empresa','Codigo','Código','CodEmpresa','cod empresa','cod_empresa' ],
+  empresaHoja:['Empresa','empresa','EMPRESA'],
+  nombreCliente:['RazonSocial','Razon Social','Razón Social','Cliente','Nombre','Nombre Cliente'],
+  lat:['latitud','Latitud','LATITUD','lat','Lat'],
+  lon:['longitud','Longitud','LONGITUD','lon','Lon','lng'],
+  vendedor:['vendedor','Vendedor','VENDEDOR'],
+  gestor:['gestor_servicio','GESTOR_SERVICIO','Gestor Servicio','Gestor'],
+  provincia:['provincia','Provincia','PROVINCIA'],
+  id:['id','ID','Id'],
+  pedidoId:['PEDIDO #','Pedido','PEDIDO','Pedido #','No Pedido','Nº Pedido','N° Pedido','Pedido N°','id'],
+  fecha:['FECHA','Fecha','fecha','Fecha Pedido','FECHA PEDIDO'],
+  estado:['ESTADO','Estado','estado','Estatus','ESTATUS','Estatus Pedido'],
+  valor:['VALOR','Valor','Total','Monto','Total Neto'],
+  codEmpresaPedido:['Cod Empresa','Codigo','Código','CodEmpresa','cod empresa','cod_empresa','codempresa','Cod Cliente/Empresa','Cod Cliente - Empresa']
+};
+function getFirst(row, keys){ for(const k of keys){ if(row[k]!==undefined && String(row[k]).trim()!=='') return String(row[k]).trim(); } const idx={}; for(const k in row){ idx[norm(k)]=k; } for(const k of keys){ const found=idx[norm(k)]; if(found && String(row[found]).trim()!=='') return String(row[found]).trim(); } return ''; }
+let state={
+  clientes:[], pedidos:[], byClientKey:new Map(),
+  map:null, markers:[], markerByKey:{},
+  chartEstados:null, chartVend:null, chartGest:null, chartProv:null,
+  ui:{tab:'todos', empresa:'', q:'', desde:'', hasta:'', ven:'', ges:'', prov:''},
+  despachos:[], entregas:[], incidencias:[], audit:[]
+};
+function buildClientIndex(clients){
+  const index=new Map();
+  clients.forEach(c=>{
+    const code=String(c.codEmpresa||'').trim();
+    const emp=String(c.empresa||'').trim();
+    const keyCode=canon(code);
+    const keyEmpCode=canon(emp+code);
+    if(keyCode) index.set(keyCode,c);
+    if(keyEmpCode) index.set(keyEmpCode,c);
+  });
+  return index;
+}
+async function loadData(){
+  const [rawClientes, rawK, rawD] = await Promise.all([
+    fetchCsv(CONFIG.sheets.clientesCsvUrl,'Clientes'),
+    fetchCsv(CONFIG.sheets.pedidosKarakaCsvUrl,'Karaka'),
+    fetchCsv(CONFIG.sheets.pedidosDistribuidoraCsvUrl,'Distribuidora')
+  ]);
+  const clients = rawClientes.map(c=>{
+    const cod = getFirst(c, COLS.codEmpresa);
+    return {
+      codEmpresa: cod,
+      empresa: (getFirst(c, COLS.empresaHoja)||'').toLowerCase(),
+      nombre: getFirst(c, COLS.nombreCliente) || cod,
+      lat: smartFloat(getFirst(c, COLS.lat)),
+      lon: smartFloat(getFirst(c, COLS.lon)),
+      vendedor: getFirst(c, COLS.vendedor) || '',
+      gestor: getFirst(c, COLS.gestor) || '',
+      provincia: getFirst(c, COLS.provincia) || '',
+      id: getFirst(c, COLS.id) || ''
+    };
+  }).filter(c=>String(c.codEmpresa||'').trim()!==''); 
+  const byKey = buildClientIndex(clients);
+  state.byClientKey = byKey;
+  state.clientes = clients;
+  const ordersRaw = [
+    ...rawK.map(p=>({ ...p, EmpresaHoja:'karaka' })),
+    ...rawD.map(p=>({ ...p, EmpresaHoja:'distribuidora' }))
+  ];
+  const orders = ordersRaw.map(p=>{
+    const empresa=(p.EmpresaHoja||'').toString().toLowerCase();
+    const codeRaw=getFirst(p, COLS.codEmpresaPedido) || '';
+    const key1=canon(codeRaw);
+    const key2=canon(empresa+codeRaw);
+    const cli = byKey.get(key2) || byKey.get(key1) || null;
+    const vendedor=getFirst(p, COLS.vendedor) || (cli?cli.vendedor:'') || '';
+    const gestor  =getFirst(p, COLS.gestor)   || (cli?cli.gestor  :'') || '';
+    const provincia = cli? (cli.provincia||'') : '';
+    return {
+      id: getFirst(p, COLS.pedidoId),
+      cliente: getFirst(p, COLS.nombreCliente) || (cli?cli.nombre:''),
+      codEmpresa: codeRaw,
+      fecha: toISO(getFirst(p, COLS.fecha)),
+      estado: getFirst(p, COLS.estado),
+      valor: getFirst(p, COLS.valor),
+      vendedor, gestor, provincia,
+      empresa,
+      clientKey: cli ? (byKey.get(key2)?key2:key1) : '',
+      clienteRef: cli
+    };
+  });
+  state.pedidos = orders;
+  populateFilters();
+  computeKPIs();
+  renderAll();
+  const dt = new Date();
+  document.getElementById('lastUpdate').textContent = `Actualizado: ${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
+}
+function computeKPIs(){
+  const today=new Date().toISOString().slice(0,10);
+  const pend=state.pedidos.filter(p=>norm(p.estado).includes('pend')).length;
+  const ruta=state.pedidos.filter(p=>norm(p.estado).includes('ruta')).length;
+  const entr=state.pedidos.filter(p=>/final|entreg/.test(norm(p.estado))).length;
+  const hoy=state.pedidos.filter(p=>p.fecha===today).length;
+  document.getElementById('kpiPendientes').textContent=pend;
+  document.getElementById('kpiRuta').textContent=ruta;
+  document.getElementById('kpiEntregados').textContent=entr;
+  document.getElementById('kpiHoy').textContent=hoy;
+}
+function uniqueNormalized(values){
+  const map=new Map();
+  for(const v of values){
+    const t=String(v||'').trim();
+    if(!t) continue;
+    const key=norm(t);
+    if(!map.has(key)) map.set(key, t);
+  }
+  return [...map.values()].sort((a,b)=>a.localeCompare(b));
+}
+function populateFilters(){
+  const selV=document.getElementById('selVendedor');
+  const selG=document.getElementById('selGestor');
+  const selP=document.getElementById('selProvincia');
+  selV.innerHTML='<option value="">Todos</option>';
+  selG.innerHTML='<option value="">Todos</option>';
+  selP.innerHTML='<option value="">Todas</option>';
+  const vs=uniqueNormalized(state.pedidos.map(p=>p.vendedor).filter(Boolean));
+  const gs=uniqueNormalized(state.pedidos.map(p=>p.gestor).filter(Boolean));
+  const ps=uniqueNormalized(state.pedidos.map(p=>p.provincia).filter(Boolean));
+  const countV={}, countG={};
+  state.pedidos.forEach(p=>{ if(p.vendedor){ countV[norm(p.vendedor)]=(countV[norm(p.vendedor)]||0)+1; } });
+  state.pedidos.forEach(p=>{ if(p.gestor){   countG[norm(p.gestor)]  =(countG[norm(p.gestor)]  ||0)+1; } });
+  vs.forEach(v=>{ const key=norm(v); const o=document.createElement('option'); o.value=v; o.textContent=`${v} (${countV[key]||0})`; selV.appendChild(o); });
+  gs.forEach(g=>{ const key=norm(g); const o=document.createElement('option'); o.value=g; o.textContent=`${g} (${countG[key]||0})`; selG.appendChild(o); });
+  ps.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; selP.appendChild(o); });
+  const despGest=document.getElementById('despGestor');
+  if(despGest){
+    despGest.innerHTML='<option value="">Seleccione</option>';
+    gs.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; despGest.appendChild(o); });
+  }
+  const cont=document.getElementById('despPedidos');
+  if(cont){
+    cont.innerHTML='';
+    state.pedidos.forEach(p=>{
+      const label = `${p.id || '[sin id]'} — ${p.cliente || ''} — ${p.empresa || ''}`;
+      const el=document.createElement('label'); el.className='block text-xs sm:text-sm';
+      el.innerHTML=`<input type="checkbox" data-pid="${p.id||''}" class="mr-1">${label}`;
+      cont.appendChild(el);
+    });
+  }
+  const dl1=document.getElementById('dlPedidos'); const dl2=document.getElementById('dlPedidos2');
+  if(dl1){ dl1.innerHTML=''; }
+  if(dl2){ dl2.innerHTML=''; }
+  state.pedidos.forEach(p=>{
+    const opt1=document.createElement('option');
+    opt1.value = p.id || '';
+    opt1.label = `${p.id || ''} — ${p.cliente || ''}`;
+    if(dl1) dl1.appendChild(opt1.cloneNode(true));
+    if(dl2) dl2.appendChild(opt1.cloneNode(true));
+  });
+}
+function applyFilters(rows){
+  const ui = state.ui;
+  return rows.filter(p=>{
+    const e=(p.estado||'').toLowerCase();
+    let okTab=true;
+    if(ui.tab==='pendientes') okTab=e.includes('pend');
+    else if(ui.tab==='facturados') okTab=e.includes('fact');
+    else if(ui.tab==='entregados') okTab=/final|entreg/.test(e);
+    const okEmp = !ui.empresa || p.empresa===ui.empresa;
+    const q = (ui.q||'').toLowerCase();
+    const okQ = !q || (String(p.id||'').toLowerCase().includes(q) ||
+                       (p.cliente||'').toLowerCase().includes(q) ||
+                       e.includes(q) ||
+                       (p.codEmpresa||'').toLowerCase().includes(q));
+    const okDesde = !ui.desde || (p.fecha && p.fecha>=ui.desde);
+    const okHasta = !ui.hasta || (p.fecha && p.fecha<=ui.hasta);
+    const okVen = !ui.ven || (norm(p.vendedor)===norm(ui.ven));
+    const okGes = !ui.ges || (norm(p.gestor)===norm(ui.ges));
+    const okProv = !ui.prov || (norm(p.provincia)===norm(ui.prov));
+    return okTab && okEmp && okQ && okDesde && okHasta && okVen && okGes && okProv;
+  });
+}
+function renderTable(){
+  const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+  state.ui.q=(document.getElementById('q').value||'').trim();
+  state.ui.desde=document.getElementById('fDesde').value||'';
+  state.ui.hasta=document.getElementById('fHasta').value||'';
+  state.ui.ven=document.getElementById('selVendedor').value||'';
+  state.ui.ges=document.getElementById('selGestor').value||'';
+  state.ui.prov=document.getElementById('selProvincia').value||'';
+  const data=applyFilters(state.pedidos);
+  for(const p of data){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="px-2 sm:px-3 py-2">${p.id||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.cliente||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.codEmpresa||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.fecha||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.estado||''}</td>
+      <td class="px-2 sm:px-3 py-2"><span class="badge">${p.empresa||''}</span></td>
+      <td class="px-2 sm:px-3 py-2">${p.vendedor||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.gestor||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.provincia||''}</td>
+      <td class="px-2 sm:px-3 py-2">${p.valor||''}</td>
+      <td class="px-2 sm:px-3 py-2"><button class="btn text-xs sm:text-sm" data-key="${p.clientKey}">Ver</button></td>`;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll('button[data-key]').forEach(b=>b.addEventListener('click',e=>{
+    const key=e.currentTarget.getAttribute('data-key');
+    focusMarkerByKey(key);
+  }));
+  const miss=data.filter(p=>!p.clientKey || !p.clienteRef).slice(0,10);
+  const mism=document.getElementById('mismatch');
+  mism.innerHTML = miss.length ? `<b>Pedidos sin cliente enlazado (muestra 10):</b><br/>${miss.map(p=>`• Pedido ${p.id||'(sin id)'} — Empresa:${p.empresa} — Código:"${p.codEmpresa}"`).join('<br/>')}` : '';
+}
+function initMap(){ state.map=L.map('map').setView([18.5,-69.9],8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(state.map);
+}
+function renderMap(){
+  state.markers.forEach(m=>m.remove()); state.markers=[]; state.markerByKey={};
+  const filtered=applyFilters(state.pedidos);
+  const used = filtered.map(p=>p.clientKey).filter(Boolean);
+  const usedSet = new Set(used);
+  let ok=0, noGeo=0, noClient=0, sinKey=filtered.length - used.length;
+  for(const key of usedSet){
+    const c = state.byClientKey.get(key);
+    if(!c){ noClient++; continue; }
+    if(c.lat==null || c.lon==null){ noGeo++; continue; }
+    const m=L.marker([c.lat,c.lon]).addTo(state.map);
+    m.bindPopup(`<b>${c.nombre||''}</b><br/>Cod Empresa: ${c.codEmpresa}${c.vendedor?'<br/>Vendedor: '+c.vendedor:''}${c.gestor?'<br/>Gestor: '+c.gestor:''}${c.provincia?'<br/>Provincia: '+c.provincia:''}`);
+    state.markers.push(m); state.markerByKey[key]=m; ok++;
+  }
+  document.getElementById('debugText').textContent=`Filtrados:${filtered.length} • Con clave:${used.length} • Sin clave:${sinKey} • Pines:${ok} • Sin coord:${noGeo} • Sin cliente:${noClient}`;
+}
+function focusMarkerByKey(key){ const m=state.markerByKey[key]; if(m){ state.map.setView(m.getLatLng(),14); m.openPopup(); } else toast('No hay pin para este registro.'); }
+function renderChartEstados(){
+  const ctx=document.getElementById('chartEstados');
+  const filtered=applyFilters(state.pedidos); const countBy={};
+  filtered.forEach(p=>{ const e=p.estado||'N/D'; countBy[e]=(countBy[e]||0)+1; });
+  const pairs=Object.entries(countBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const labels=pairs.map(p=>p[0]); const data=pairs.map(p=>p[1]);
+  if(state.chartEstados) state.chartEstados.destroy();
+  state.chartEstados=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Pedidos',data}]},options:{plugins:{legend:{display:false}}}});
+}
+function createUUID(){ return 'r'+Math.random().toString(36).slice(2,9); }
+function buildDespachosList(){
+  const tb=document.getElementById('tbodyDespachos'); tb.innerHTML='';
+  state.despachos.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="px-2 py-2">${r.fecha}</td>
+      <td class="px-2 py-2">${r.ruta_id}</td>
+      <td class="px-2 py-2">${r.gestor}</td>
+      <td class="px-2 py-2">${r.vehiculo||''}</td>
+      <td class="px-2 py-2">${r.ventana||''}</td>
+      <td class="px-2 py-2">${r.pedidos.join(', ')}</td>
+      <td class="px-2 py-2"><span class="badge">${r.estado_ruta}</span></td>
+      <td class="px-2 py-2"><button class="btn secondary text-xs" data-rid="${r.ruta_id}">Marcar En ruta</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('button[data-rid]').forEach(b=>b.addEventListener('click',e=>{
+    const id=e.currentTarget.getAttribute('data-rid');
+    const r = state.despachos.find(x=>x.ruta_id===id);
+    if(r){ r.estado_ruta='En ruta'; buildDespachosList(); addAudit('planner','update','ruta',id,{estado:'En ruta'}); }
+  }));
+}
+function canvasToDataURL(canvas){ return canvas.toDataURL('image/png'); }
+function clearCanvas(canvas){ const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+function renderEntregasTable(){
+  const tb=document.getElementById('tbodyEntregas'); tb.innerHTML='';
+  state.entregas.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="px-2 py-2">${r.fecha_hora}</td>
+      <td class="px-2 py-2">${r.pedido_id}</td>
+      <td class="px-2 py-2">${r.cliente||''}</td>
+      <td class="px-2 py-2">${r.gestor||''}</td>
+      <td class="px-2 py-2">${r.estado_entrega}</td>
+      <td class="px-2 py-2">${r.lat||''}</td>
+      <td class="px-2 py-2">${r.lon||''}</td>
+      <td class="px-2 py-2">${r.accuracy||''}</td>
+      <td class="px-2 py-2">${r.observaciones||''}</td>
+      <td class="px-2 py-2">${r.foto_url?'<a class="link" href="'+r.foto_url+'" target="_blank">Ver</a>':''}</td>
+      <td class="px-2 py-2">${r.firma_url?'<a class="link" href="'+r.firma_url+'" target="_blank">Ver</a>':''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function renderIncidTable(){
+  const tb=document.getElementById('tbodyIncid'); tb.innerHTML='';
+  state.incidencias.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="px-2 py-2">${r.fecha_hora}</td>
+      <td class="px-2 py-2">${r.pedido_id}</td>
+      <td class="px-2 py-2">${r.tipo}</td>
+      <td class="px-2 py-2">${r.lat||''}</td>
+      <td class="px-2 py-2">${r.lon||''}</td>
+      <td class="px-2 py-2">${r.accuracy||''}</td>
+      <td class="px-2 py-2">${r.descripcion||''}</td>
+      <td class="px-2 py-2">${r.foto_url?'<a class="link" href="'+r.foto_url+'" target="_blank">Ver</a>':''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function aggCountBy(list, key){ const m={}; list.forEach(x=>{ const v=norm(x[key]); if(!v) return; m[v]=(m[v]||0)+1; }); return m; }
+function renderKPIs(){
+  const data=applyFilters(state.pedidos);
+  const vend=aggCountBy(data,'vendedor'); const gest=aggCountBy(data,'gestor'); const prov=aggCountBy(data,'provincia');
+  function topPairs(obj){ return Object.entries(obj).map(([k,v])=>[k,v]).sort((a,b)=>b[1]-a[1]).slice(0,10); }
+  function buildChart(canvasId, pairs, label){
+    const labels=pairs.map(p=>p[0]); const values=pairs.map(p=>p[1]);
+    if(canvasId==='kpiVendChart' && state.chartVend){ state.chartVend.destroy(); }
+    if(canvasId==='kpiGestChart' && state.chartGest){ state.chartGest.destroy(); }
+    if(canvasId==='kpiProvChart' && state.chartProv){ state.chartProv.destroy(); }
+    const ctx=document.getElementById(canvasId);
+    const chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label, data:values}]},options:{plugins:{legend:{display:false}}}});
+    if(canvasId==='kpiVendChart') state.chartVend=chart;
+    if(canvasId==='kpiGestChart') state.chartGest=chart;
+    if(canvasId==='kpiProvChart') state.chartProv=chart;
+  }
+  buildChart('kpiVendChart', topPairs(vend), 'Pedidos');
+  buildChart('kpiGestChart', topPairs(gest), 'Pedidos');
+  buildChart('kpiProvChart', topPairs(prov), 'Pedidos');
+  function buildTable(divId, pairs){
+    const div=document.getElementById(divId); div.innerHTML='';
+    const tbl=document.createElement('table'); tbl.className='w-full';
+    tbl.innerHTML='<thead><tr><th class="text-left text-xs py-1">Nombre</th><th class="text-right text-xs py-1">Pedidos</th></tr></thead>';
+    const tb=document.createElement('tbody');
+    pairs.forEach(p=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td class="text-xs py-1">${p[0]}</td><td class="text-xs py-1 text-right">${p[1]}</td>`; tb.appendChild(tr); });
+    tbl.appendChild(tb); div.appendChild(tbl);
+  }
+  buildTable('kpiVendTbl', topPairs(vend));
+  buildTable('kpiGestTbl', topPairs(gest));
+  buildTable('kpiProvTbl', topPairs(prov));
+}
+function addAudit(user, action, entity, id, detail){
+  const rec={ fecha_hora:new Date().toISOString(), user, action, entity, id, detail: JSON.stringify(detail||{}) };
+  state.audit.unshift(rec);
+  const tb=document.getElementById('tbodyAudit');
+  if(tb){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="px-2 py-2">${rec.fecha_hora}</td>
+      <td class="px-2 py-2">${rec.user}</td>
+      <td class="px-2 py-2">${rec.action}</td>
+      <td class="px-2 py-2">${rec.entity}</td>
+      <td class="px-2 py-2">${rec.id}</td>
+      <td class="px-2 py-2">${rec.detail}</td>`;
+    tb.prepend(tr);
+  }
+}
+function renderAll(){ renderTable(); renderMap(); renderChartEstados(); renderKPIs(); }
+function bindPedidosUI(){
+  document.querySelectorAll('#secPedidos .tab[data-tab]').forEach(el=>el.addEventListener('click',()=>{
+    document.querySelectorAll('#secPedidos .tab[data-tab]').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active'); state.ui.tab=el.dataset.tab; renderAll();
+  }));
+  document.querySelectorAll('#secPedidos .chip').forEach(el=>el.addEventListener('click',()=>{
+    document.querySelectorAll('#secPedidos .chip').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active'); state.ui.empresa=el.dataset.empresa||''; renderAll();
+  }));
+  ['q','fDesde','fHasta','selVendedor','selGestor','selProvincia'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.addEventListener('input',renderAll);
+    el.addEventListener('change',renderAll);
+  });
+  document.getElementById('toggleTable').addEventListener('click',()=>{
+    const wrap=document.getElementById('tableWrap');
+    if(wrap.style.display==='none'){ wrap.style.display='block'; event.target.textContent='Ocultar tabla'; }
+    else { wrap.style.display='none'; event.target.textContent='Mostrar tabla'; }
+  });
+  document.getElementById('toggleMap').addEventListener('click',()=>{
+    const wrap=document.getElementById('mapWrap');
+    if(wrap.style.display==='none'){ wrap.style.display='block'; event.target.textContent='Ocultar mapa'; setTimeout(()=>state.map.invalidateSize(),200); }
+    else { wrap.style.display='none'; event.target.textContent='Mostrar mapa'; }
+  });
+}
+function bindTabs(){
+  document.querySelectorAll('nav .tab[data-section]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('nav .tab[data-section]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const id=btn.dataset.section;
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if(id==='secKPIs') renderKPIs();
+  }));
+}
+function bindDespachos(){
+  document.getElementById('btnCrearDespacho').addEventListener('click', async ()=>{
+    const fecha=document.getElementById('despFecha').value;
+    const gestor=document.getElementById('despGestor').value;
+    const veh=document.getElementById('despVehiculo').value;
+    const vent=document.getElementById('despVentana').value;
+    const checks=[...document.querySelectorAll('#despPedidos input[type=checkbox]:checked')];
+    const pedidos=checks.map(ch=>ch.getAttribute('data-pid')).filter(x=>x);
+    if(!fecha || !gestor || !pedidos.length){ toast('Complete Fecha, Gestor y seleccione pedidos.'); return; }
+    const ruta_id = createUUID();
+    const rec={ fecha, ruta_id, gestor, vehiculo:veh, ventana:vent, pedidos, estado_ruta:'Programado' };
+    state.despachos.unshift(rec);
+    buildDespachosList();
+    addAudit('planner','create','ruta',ruta_id,rec);
+    if(CONFIG.write.mode==='apps_script'){
+      try{ await postAppsScript('Despachos', rec); toast('Despacho enviado a Sheets'); }
+      catch(e){ toast('No se pudo enviar a Sheets: '+e.message); }
+    }
+  });
+  document.getElementById('btnExportDespachos').addEventListener('click',()=>{
+    if(!state.despachos.length){ toast('No hay despachos para exportar'); return; }
+    downloadCSV('Despachos.csv', state.despachos);
+  });
+}
+function bindEntregas(){
+  document.getElementById('entPedidoId').addEventListener('change',()=>{
+    const pid=document.getElementById('entPedidoId').value;
+    const p = state.pedidos.find(x=>String(x.id)===String(pid));
+    if(p){
+      document.getElementById('entCodEmp').value=p.codEmpresa||'';
+      document.getElementById('entCliente').value=p.cliente||'';
+      document.getElementById('entEmpresa').value=p.empresa||'';
+      document.getElementById('entGestor').value=p.gestor||'';
+    }
+  });
+  document.getElementById('entFoto').addEventListener('change',()=>{
+    const f=document.getElementById('entFoto').files?.[0]; if(!f){document.getElementById('entFotoPrev').src='';return;}
+    dataURL(f,(url)=>{ document.getElementById('entFotoPrev').src=url; });
+  });
+  const sig=document.getElementById('entFirma'); const ctx=sig.getContext('2d'); let drawing=false;
+  sig.addEventListener('mousedown',e=>{drawing=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);});
+  sig.addEventListener('mousemove',e=>{if(drawing){ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();}});
+  sig.addEventListener('mouseup',()=>{drawing=false;});
+  sig.addEventListener('touchstart',e=>{e.preventDefault(); const t=e.touches[0]; const r=sig.getBoundingClientRect(); ctx.beginPath(); ctx.moveTo(t.clientX-r.left, t.clientY-r.top); drawing=true;},{passive:false});
+  sig.addEventListener('touchmove',e=>{e.preventDefault(); if(!drawing)return; const t=e.touches[0]; const r=sig.getBoundingClientRect(); ctx.lineTo(t.clientX-r.left, t.clientY-r.top); ctx.stroke();},{passive:false});
+  sig.addEventListener('touchend',()=>{drawing=false;},{passive:false});
+  document.getElementById('btnClearFirma').addEventListener('click',()=>clearCanvas(sig));
+  document.getElementById('btnGPS').addEventListener('click',()=>{
+    if(!navigator.geolocation){ toast('GPS no disponible'); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const {latitude, longitude, accuracy}=pos.coords;
+      document.getElementById('entGPS').textContent = `Lat ${latitude.toFixed(6)}, Lon ${longitude.toFixed(6)} (±${Math.round(accuracy)}m)`;
+      document.getElementById('entGPS').dataset.lat = latitude;
+      document.getElementById('entGPS').dataset.lon = longitude;
+      document.getElementById('entGPS').dataset.acc = accuracy;
+    }, err=>toast('No se pudo obtener GPS: '+err.message), {enableHighAccuracy:true, timeout:10000});
+  });
+  document.getElementById('btnGuardarEntrega').addEventListener('click', async ()=>{
+    const pid=document.getElementById('entPedidoId').value;
+    const p = state.pedidos.find(x=>String(x.id)===String(pid));
+    if(!p){ toast('Seleccione un pedido válido'); return; }
+    const fotoF=document.getElementById('entFoto').files?.[0];
+    const foto_url = fotoF ? document.getElementById('entFotoPrev').src : '';
+    const firma_url = canvasToDataURL(document.getElementById('entFirma'));
+    const lat=document.getElementById('entGPS').dataset.lat||'';
+    const lon=document.getElementById('entGPS').dataset.lon||'';
+    const accuracy=document.getElementById('entGPS').dataset.acc||'';
+    const rec={
+      pedido_id: p.id, cod_empresa:p.codEmpresa, empresa:p.empresa, cliente:p.cliente,
+      gestor:p.gestor, estado_entrega:document.getElementById('entEstado').value,
+      fecha_hora: new Date().toISOString(), lat, lon, accuracy,
+      observaciones: document.getElementById('entObs').value,
+      foto_url, firma_url
+    };
+    state.entregas.unshift(rec);
+    renderEntregasTable();
+    addAudit('field','create','entrega',p.id, rec);
+    if(CONFIG.write.mode==='apps_script'){
+      try{ await postAppsScript('Entregas', rec); toast('Entrega enviada a Sheets'); }
+      catch(e){ toast('No se pudo enviar a Sheets: '+e.message); }
+    }
+  });
+  document.getElementById('btnExportEntregas').addEventListener('click',()=>{
+    if(!state.entregas.length){ toast('No hay entregas para exportar'); return; }
+    downloadCSV('Entregas.csv', state.entregas);
+  });
+}
+function bindIncidencias(){
+  document.getElementById('incFoto').addEventListener('change',()=>{
+    const f=document.getElementById('incFoto').files?.[0]; if(!f){document.getElementById('incFotoPrev').src='';return;}
+    dataURL(f,(url)=>{ document.getElementById('incFotoPrev').src=url; });
+  });
+  document.getElementById('btnGPSInc').addEventListener('click',()=>{
+    if(!navigator.geolocation){ toast('GPS no disponible'); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const {latitude, longitude, accuracy}=pos.coords;
+      document.getElementById('incGPS').textContent = `Lat ${latitude.toFixed(6)}, Lon ${longitude.toFixed(6)} (±${Math.round(accuracy)}m)`;
+      document.getElementById('incGPS').dataset.lat = latitude;
+      document.getElementById('incGPS').dataset.lon = longitude;
+      document.getElementById('incGPS').dataset.acc = accuracy;
+    }, err=>toast('No se pudo obtener GPS: '+err.message), {enableHighAccuracy:true, timeout:10000});
+  });
+  document.getElementById('btnGuardarIncid').addEventListener('click', async ()=>{
+    const pid=document.getElementById('incPedidoId').value;
+    const p = state.pedidos.find(x=>String(x.id)===String(pid));
+    if(!p){ toast('Seleccione un pedido válido'); return; }
+    const fotoF=document.getElementById('incFoto').files?.[0];
+    const foto_url = fotoF ? document.getElementById('incFotoPrev').src : '';
+    const lat=document.getElementById('incGPS').dataset.lat||'';
+    const lon=document.getElementById('incGPS').dataset.lon||'';
+    const accuracy=document.getElementById('incGPS').dataset.acc||'';
+    const rec={
+      pedido_id: p.id, cod_empresa:p.codEmpresa, empresa:p.empresa, cliente:p.cliente,
+      tipo: document.getElementById('incTipo').value,
+      descripcion: document.getElementById('incDesc').value,
+      fecha_hora: new Date().toISOString(), lat, lon, accuracy, foto_url
+    };
+    state.incidencias.unshift(rec);
+    renderIncidTable();
+    addAudit('field','create','incidencia',p.id, rec);
+    if(CONFIG.write.mode==='apps_script'){
+      try{ await postAppsScript('Incidencias', rec); toast('Incidencia enviada a Sheets'); }
+      catch(e){ toast('No se pudo enviar a Sheets: '+e.message); }
+    }
+  });
+  document.getElementById('btnExportIncid').addEventListener('click',()=>{
+    if(!state.incidencias.length){ toast('No hay incidencias para exportar'); return; }
+    downloadCSV('Incidencias.csv', state.incidencias);
+  });
+}
+function bindConfig(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('l360cfg')||'{}');
+    if(saved.write){ CONFIG.write = saved.write; }
+  }catch{}
+  document.getElementById('cfgWriteMode').value = CONFIG.write.mode;
+  document.getElementById('cfgAppsUrl').value = CONFIG.write.appsScriptUrl||'';
+  document.getElementById('btnSaveConfig').addEventListener('click',()=>{
+    CONFIG.write.mode = document.getElementById('cfgWriteMode').value;
+    CONFIG.write.appsScriptUrl = document.getElementById('cfgAppsUrl').value;
+    localStorage.setItem('l360cfg', JSON.stringify({write:CONFIG.write}));
+    document.getElementById('cfgMsg').textContent = 'Guardado.';
+  });
+  document.getElementById('btnPing').addEventListener('click', async ()=>{
+    try{
+      await postAppsScript('Ping',{hello:true});
+      document.getElementById('cfgMsg').textContent='Conexión OK';
+    }catch(e){
+      document.getElementById('cfgMsg').textContent='Error: '+e.message;
+    }
+  });
+}
+function bindGlobal(){
+  document.getElementById('refreshBtn').addEventListener('click', async ()=>{
+    await loadData(); toast('Datos actualizados');
+  });
+  bindTabs();
+  bindPedidosUI();
+  bindDespachos();
+  bindEntregas();
+  bindIncidencias();
+  bindConfig();
+}
+function initMapStart(){ initMap(); }
+window.addEventListener('DOMContentLoaded', async ()=>{
+  bindGlobal(); initMapStart(); await loadData(); renderAll();
+});
+</script>
+
+</body>
+</html>
