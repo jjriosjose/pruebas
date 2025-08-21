@@ -1,0 +1,322 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Logística & Almacén — Sistema de Pedidos (Debug)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{ --ink:#0b3a55; --brand:#0ea5e9; --brand2:#2563eb;}
+    body{background:#f5f7fb;color:#0f172a}
+    .navbar{background:#0f172a;color:#e5eef9}
+    .kpi{background:#fff;border:1px solid #e5e7eb;border-radius:0.8rem;padding:.9rem 1rem}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:0.8rem}
+    .btn{background:var(--brand);color:#fff;border-radius:.55rem;padding:.5rem .9rem}
+    .btn:hover{filter:brightness(.97)}
+    .tab{border:1px solid #e5e7eb;border-radius:.6rem;padding:.45rem .8rem;background:#fff;cursor:pointer}
+    .tab.active{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+    .badge{background:#eef6ff;border:1px solid #dbeafe;color:#0b3a55;border-radius:9999px;padding:2px 10px;font-size:12px}
+    #map{height:55vh;border-radius:.8rem;border:1px solid #e5e7eb}
+    .toast{position:fixed;right:1rem;bottom:1rem;background:#fee2e2;color:#7f1d1d;border:1px solid #fecaca;border-radius:.6rem;padding:.6rem .8rem;display:none;z-index:9999}
+    .toast.show{display:block}
+    .debug{position:fixed;left:1rem;bottom:1rem;background:#0b1220;color:#e5eef9;border:1px solid #1f2937;border-radius:.6rem;padding:.6rem .8rem;z-index:9999;max-width:40rem}
+    .debug pre{white-space:pre-wrap}
+    .table th{font-size:.8rem;text-transform:uppercase;color:#334155;background:#f3f4f6}
+    .table td{border-top:1px solid #f1f5f9}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="max-w-7xl mx-auto flex items-center justify-between p-3">
+      <div class="flex items-center gap-3">
+        <img src="./logo.png" alt="Logo" class="h-8 w-8 object-contain rounded">
+        <div class="text-lg font-semibold">Logística & Almacén</div>
+      </div>
+      <button id="refreshBtn" class="btn">Actualizar</button>
+    </div>
+  </nav>
+
+  <header class="bg-white border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 py-5">
+      <h1 class="text-2xl font-bold" style="color:var(--ink)">Sistema de Gestión de Pedidos</h1>
+      <p class="text-sm text-gray-500">Almacén y logística</p>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-4 space-y-4">
+    <section class="grid md:grid-cols-4 gap-3">
+      <div class="kpi">Pendientes <div class="text-2xl font-semibold" id="kpiPendientes">—</div></div>
+      <div class="kpi">Hoy <div class="text-2xl font-semibold" id="kpiHoy">—</div></div>
+      <div class="kpi">En ruta <div class="text-2xl font-semibold" id="kpiRuta">—</div></div>
+      <div class="kpi">Entregados 7d <div class="text-2xl font-semibold" id="kpiEntregados">—</div></div>
+    </section>
+
+    <section class="card p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="tab active" data-tab="todos">Todos</div>
+        <div class="tab" data-tab="pendientes">Pendientes</div>
+        <div class="tab" data-tab="facturados">Facturados</div>
+        <div class="tab" data-tab="entregados">Entregados</div>
+        <div class="ml-4 flex items-center gap-2 text-sm">
+          <span>Empresa:</span>
+          <span class="tab active" data-empresa="">Todas</span>
+          <span class="tab" data-empresa="karaka">karaka</span>
+          <span class="tab" data-empresa="distribuidora">distribuidora</span>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <input id="q" type="search" placeholder="Buscar pedido/cliente/estado" class="border border-gray-300 rounded-md px-3 py-1 w-64 bg-white">
+          <input id="fDesde" type="date" class="border border-gray-300 rounded-md px-3 py-1 bg-white">
+          <input id="fHasta" type="date" class="border border-gray-300 rounded-md px-3 py-1 bg-white">
+        </div>
+      </div>
+    </section>
+
+    <section class="grid lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card">
+        <div class="overflow-auto">
+          <table class="w-full table">
+            <thead>
+              <tr>
+                <th class="text-left px-3 py-2">Pedido</th>
+                <th class="text-left px-3 py-2">Cliente</th>
+                <th class="text-left px-3 py-2">Fecha</th>
+                <th class="text-left px-3 py-2">Estado</th>
+                <th class="text-left px-3 py-2">Empresa</th>
+                <th class="text-left px-3 py-2">Valor</th>
+                <th class="text-left px-3 py-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card p-3">
+        <h3 class="font-semibold mb-2" style="color:var(--ink)">📊 Estadísticas</h3>
+        <canvas id="chartEstados" height="200"></canvas>
+      </div>
+    </section>
+
+    <section class="card p-3">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold" style="color:var(--ink)">🗺️ Mapa de Pedidos</h3>
+        <div class="text-xs text-gray-500" id="debugText"></div>
+      </div>
+      <div id="map"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast">Error</div>
+  <div class="debug" id="debugBox" style="display:none">
+    <div class="flex items-center justify-between gap-4">
+      <div class="font-semibold">Debug</div>
+      <button id="hideDebug" class="btn">Cerrar</button>
+    </div>
+    <pre id="debugLog" class="mt-2 text-xs"></pre>
+  </div>
+  <button id="showDebug" class="btn" style="position:fixed;left:1rem;bottom:1rem;z-index:9999;">Ver debug</button>
+
+<script>
+const CONFIG = {
+  sheets: {
+    clientesCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=193390473&single=true&output=csv",
+    pedidosKarakaCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=1945180719&single=true&output=csv",
+    pedidosDistribuidoraCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=919779363&single=true&output=csv"
+  }
+};
+
+// Demo fallback (si falla red)
+const DEMO = {
+  clientes:[
+    { "Cod Empresa":"karaka-001", "RazonSocial":"Cliente Demo K", "latitud":"18.48", "longitud":"-69.90", "Empresa":"karaka" },
+    { "Cod Empresa":"distribuidora-002", "RazonSocial":"Cliente Demo D", "latitud":"18.52", "longitud":"-69.95", "Empresa":"distribuidora" }
+  ],
+  karaka:[
+    {"PEDIDO #":"K-001","NOMBRE":"Cliente Demo K","FECHA":"2025-08-21","ESTADO":"Pendiente","VALOR":"100","Cod Empresa":"karaka-001"}
+  ],
+  distribuidora:[
+    {"PEDIDO #":"D-002","NOMBRE":"Cliente Demo D","FECHA":"2025-08-22","ESTADO":"Despachado Final","VALOR":"200","Cod Empresa":"distribuidora-002"}
+  ]
+};
+
+// Debug helpers
+const debugLogEl = () => document.getElementById('debugLog');
+function log(...args){ const t=new Date().toISOString().split('T')[1].slice(0,8); debugLogEl().textContent += `[${t}] ${args.join(' ')}\n`; }
+window.onerror = (m,s,l,c,e)=>{ log('onerror:', m, s+':'+l); };
+window.onunhandledrejection = e => { log('unhandled:', (e.reason && e.reason.message)||e.reason); };
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),4000); }
+function toNumber(x){ if(x==null) return null; const s=String(x).trim().replace(',','.'); const n=parseFloat(s); return Number.isFinite(n)?n:null; }
+function excelDateToISO(v){ const num=Number(v); if(!Number.isFinite(num)) return String(v||''); const base=new Date(Date.UTC(1899,11,30)); const d=new Date(base.getTime()+num*86400000); return d.toISOString().slice(0,10); }
+function toISO(value){ if(!value) return ''; const s=String(value); return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:excelDateToISO(s); }
+function parseCSV(text){
+  const rows=text.trim().split(/\r?\n/); if(!rows.length) return [];
+  const split=r=>r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c=>c.replace(/^"|"$|\r/g,''));
+  const headers=split(rows.shift()).map(h=>h.trim());
+  return rows.map(r=>{ const c=split(r); const o={}; headers.forEach((h,i)=>o[h]=c[i]??''); return o; });
+}
+async function fetchCsv(url,label){
+  log('fetching', label, url);
+  const res=await fetch(url,{cache:'no-store',mode:'cors'});
+  log('status', label, res.status);
+  if(!res.ok) throw new Error(label+': HTTP '+res.status);
+  const txt = await res.text();
+  log(label, 'bytes', txt.length);
+  return parseCSV(txt);
+}
+
+let state={clientes:[], pedidos:[], map:null, markers:[], markerByKey:{}, chart:null, ui:{tab:'todos', empresa:'', q:'', desde:'', hasta:''}};
+
+function getClientKey(c){ return c['Cod Empresa']||c['Cod_Empresa']||c['IDCliente']||c['CodEmpresa']||c['Codigo']||''; }
+function getOrderKey(p){ return p['Cod Empresa']||p['Cod_Empresa']||p['IDCliente']||p['CodEmpresa']||p['Codigo']||''; }
+function getOrderId(p){ return p['PEDIDO #']||p['PEDIDO']||p['Pedido']||p['Pedido #']||''; }
+function getOrderName(p){ return p['NOMBRE']||p['Cliente']||p['RazonSocial']||''; }
+function getOrderDate(p){ return toISO(p['FECHA']||p['Fecha']||''); }
+function getOrderEstado(p){ return (p['ESTADO']||p['Estado']||'').toString(); }
+function getOrderValor(p){ return p['VALOR']||p['Monto']||''; }
+
+async function loadData(){
+  try{
+    const [clientes, k, d] = await Promise.all([
+      fetchCsv(CONFIG.sheets.clientesCsvUrl,'Clientes'),
+      fetchCsv(CONFIG.sheets.pedidosKarakaCsvUrl,'Karaka'),
+      fetchCsv(CONFIG.sheets.pedidosDistribuidoraCsvUrl,'Distribuidora')
+    ]);
+    log('csv ok; sizes', clientes.length, k.length, d.length);
+    buildState(clientes, k, d);
+  }catch(e){
+    log('csv failed, using DEMO', e.message);
+    toast('No se pudo leer CSV. Mostrando datos demo.');
+    buildState(DEMO.clientes, DEMO.karaka, DEMO.distribuidora);
+  }
+}
+
+function buildState(clientes, k, d){
+  state.clientes = clientes.map(c=>{
+    c.Empresa = (c.Empresa||'').toString().toLowerCase();
+    c._key = getClientKey(c);
+    c._lat = toNumber(c.latitud||c.Latitud);
+    c._lon = toNumber(c.longitud||c.Longitud);
+    c._nombre = c.RazonSocial||c.NOMBRE||c.Cliente||c._key;
+    return c;
+  });
+  state.pedidos = [
+    ...k.map(p=>({...p, Empresa:'karaka'})),
+    ...d.map(p=>({...p, Empresa:'distribuidora'})),
+  ].map(p=>{
+    p._key = getOrderKey(p);
+    p._id = getOrderId(p);
+    p._cliente = getOrderName(p);
+    p._fecha = getOrderDate(p);
+    p._estado = getOrderEstado(p);
+    p._valor = getOrderValor(p);
+    return p;
+  });
+  computeKPIs(); renderTable(); renderMap(); renderChart();
+}
+
+function computeKPIs(){
+  const today=new Date().toISOString().slice(0,10);
+  const pend=state.pedidos.filter(p=>p._estado.toLowerCase().includes('pend')).length;
+  const ruta=state.pedidos.filter(p=>p._estado.toLowerCase().includes('ruta')).length;
+  const entr=state.pedidos.filter(p=>/final|entreg/.test(p._estado.toLowerCase())).length;
+  const hoy=state.pedidos.filter(p=>p._fecha===today).length;
+  document.getElementById('kpiPendientes').textContent=pend;
+  document.getElementById('kpiRuta').textContent=ruta;
+  document.getElementById('kpiEntregados').textContent=entr;
+  document.getElementById('kpiHoy').textContent=hoy;
+}
+
+function applyFilters(rows){
+  const {tab, empresa, q, desde, hasta} = state.ui;
+  return rows.filter(p=>{
+    const e=p._estado.toLowerCase();
+    let okTab=true;
+    if(tab==='pendientes') okTab=e.includes('pend');
+    else if(tab==='facturados') okTab=e.includes('fact');
+    else if(tab==='entregados') okTab=/final|entreg/.test(e);
+    const okEmp=!empresa || (p.Empresa===empresa);
+    const okQ=!q || (p._id?.toString().toLowerCase().includes(q) || (p._cliente||'').toLowerCase().includes(q) || e.includes(q));
+    const okDesde=!desde || (p._fecha && p._fecha>=desde);
+    const okHasta=!hasta || (p._fecha && p._fecha<=hasta);
+    return okTab && okEmp && okQ && okDesde && okHasta;
+  });
+}
+
+function renderTable(){
+  const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+  state.ui.q=(document.getElementById('q').value||'').trim().toLowerCase();
+  state.ui.desde=document.getElementById('fDesde').value||'';
+  state.ui.hasta=document.getElementById('fHasta').value||'';
+  const data=applyFilters(state.pedidos);
+  for(const p of data){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="px-3 py-2">${p._id||''}</td>
+      <td class="px-3 py-2">${p._cliente||''}</td>
+      <td class="px-3 py-2">${p._fecha||''}</td>
+      <td class="px-3 py-2">${p._estado||''}</td>
+      <td class="px-3 py-2"><span class="badge">${p.Empresa}</span></td>
+      <td class="px-3 py-2">${p._valor||''}</td>
+      <td class="px-3 py-2"><button class="btn text-sm" data-locate="${p._key}">Ver</button></td>`;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll('button[data-locate]').forEach(b=>b.addEventListener('click', e=>{
+    const key=e.currentTarget.getAttribute('data-locate'); focusMarker(key);
+  }));
+}
+
+function initMap(){ state.map=L.map('map').setView([18.5,-69.9],8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(state.map);
+}
+function renderMap(){
+  state.markers.forEach(m=>m.remove()); state.markers=[]; state.markerByKey={};
+  const filtered=applyFilters(state.pedidos); const keys=new Set(filtered.map(p=>p._key));
+  let ok=0,bad=0;
+  for(const c of state.clientes){ if(!keys.has(c._key)) continue;
+    if(c._lat==null||c._lon==null){bad++; continue;}
+    const marker=L.marker([c._lat,c._lon]).addTo(state.map);
+    marker.bindPopup(`<b>${c._nombre}</b><br/>Empresa: ${c.Empresa||''}<br/><span class='text-xs text-gray-500'>${c._key}</span>`);
+    state.markers.push(marker); state.markerByKey[c._key]=marker; ok++;
+  }
+  document.getElementById('debugText').textContent=`Pines: ${ok} • Sin coordenadas: ${bad}`;
+}
+function focusMarker(key){ const m=state.markerByKey[key]; if(m){ state.map.setView(m.getLatLng(),14); m.openPopup(); } else toast('No hay coordenadas.'); }
+
+function renderChart(){
+  const ctx=document.getElementById('chartEstados');
+  const filtered=applyFilters(state.pedidos); const countBy={};
+  filtered.forEach(p=>{ const e=p._estado||'N/D'; countBy[e]=(countBy[e]||0)+1; });
+  const pairs=Object.entries(countBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const labels=pairs.map(p=>p[0]); const data=pairs.map(p=>p[1]);
+  if(state.chart) state.chart.destroy();
+  state.chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Pedidos',data}]},options:{plugins:{legend:{display:false}}}});
+}
+
+// UI events
+function bindUI(){
+  document.querySelectorAll('.tab[data-tab]').forEach(el=>el.addEventListener('click',()=>{
+    document.querySelectorAll('.tab[data-tab]').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active'); state.ui.tab=el.dataset.tab; renderTable(); renderMap(); renderChart();
+  }));
+  document.querySelectorAll('.tab[data-empresa]').forEach(el=>el.addEventListener('click',()=>{
+    document.querySelectorAll('.tab[data-empresa]').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active'); state.ui.empresa=el.dataset.empresa||''; renderTable(); renderMap(); renderChart();
+  }));
+  ['q','fDesde','fHasta'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{ renderTable(); renderMap(); renderChart(); });
+    document.getElementById(id).addEventListener('change',()=>{ renderTable(); renderMap(); renderChart(); });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', async ()=>{ await loadData(); toast('Datos actualizados'); });
+  document.getElementById('showDebug').addEventListener('click',()=>{ document.getElementById('debugBox').style.display='block'; });
+  document.getElementById('hideDebug').addEventListener('click',()=>{ document.getElementById('debugBox').style.display='none'; });
+}
+
+// Start
+window.addEventListener('DOMContentLoaded', async ()=>{ bindUI(); initMap(); await loadData(); });
+</script>
+</body>
+</html>
