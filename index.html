@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Logística 360 – Pedidos & Rutas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{
+  --bg:#0b1623; --ink:#0b2542; --mut:#6b7788; --pri:#0ea5e9; --ok:#059669; --bad:#dc2626; --card:#f6f9fc;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,Arial,sans-serif;color:var(--ink);background:#f1f5f9}
+.navbar{position:sticky;top:0;z-index:5;display:flex;gap:.5rem;align-items:center;background:var(--bg);padding:.6rem .9rem;border-bottom:1px solid #0d2239}
+.brand{color:#fff;font-weight:700;margin-right:.6rem}
+.navbar .tab{display:inline-block;padding:.35rem .8rem;border-radius:12px;background:#e9f1f7;color:var(--ink);text-decoration:none;font-weight:600}
+.navbar .tab.active{background:var(--pri);color:#fff}
+.container{max-width:1200px;margin:1.2rem auto;padding:0 1rem}
+h1{font-size:1.8rem;margin:.2rem 0 1rem}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:900px){.row{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+.badge{display:inline-block;padding:.2rem .5rem;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc}
+.controls{display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}
+input,select,button{padding:.45rem .6rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+.btn{background:var(--pri);border-color:#0284c7;color:#fff;font-weight:600;cursor:pointer}
+.btn.secondary{background:#e2e8f0;color:#0b2542;border-color:#cbd5e1}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:.45rem;border-bottom:1px solid #e2e8f0;font-size:.92rem}
+.table th{color:#334155;text-transform:uppercase;letter-spacing:.03em;font-size:.75rem}
+.section{display:none}
+.section.active{display:block}
+#mapPedidos{height:520px;border-radius:12px;border:1px solid #e2e8f0}
+.toast{position:fixed;right:10px;bottom:10px;background:#111827;color:#fff;padding:.6rem .8rem;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:99}
+</style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">Logística 360</div>
+    <a class="tab active" data-sec="ped" href="#ped">Pedidos</a>
+    <a class="tab" data-sec="desp" href="#desp">Despachos</a>
+    <a class="tab" data-sec="ent" href="#ent">Entregas</a>
+    <a class="tab" data-sec="inc" href="#inc">Incidencias</a>
+    <a class="tab" data-sec="kpi" href="#kpi">KPIs</a>
+    <a class="tab" data-sec="aud" href="#aud">Auditoría</a>
+    <a class="tab" data-sec="cfg" href="#cfg">Config</a>
+  </nav>
+
+  <div class="container">
+    <!-- PEDIDOS -->
+    <section id="sec-ped" class="section active">
+      <h1>Pedidos & Mapa</h1>
+      <div id="diagStatus" class="card" style="margin:.6rem 0;display:flex;gap:.6rem;flex-wrap:wrap"></div>
+
+      <div class="card controls">
+        <div>
+          <label>Empresa:</label>
+          <select id="fEmpresa">
+            <option value="todas">Todas</option>
+            <option value="karaka">karaka</option>
+            <option value="distribuidora">distribuidora</option>
+          </select>
+        </div>
+        <div>
+          <label>Vendedor:</label>
+          <select id="fVendedor"><option value="todos">Todos</option></select>
+        </div>
+        <div>
+          <label>Gestor:</label>
+          <select id="fGestor"><option value="todos">Todos</option></select>
+        </div>
+        <div>
+          <label>Provincia:</label>
+          <select id="fProv"><option value="todas">Todas</option></select>
+        </div>
+        <div style="flex:1 1 220px">
+          <label>Buscar:</label>
+          <input id="fQ" placeholder="pedido / cliente / estado"/>
+        </div>
+        <button class="btn" id="btnRefrescar">Actualizar</button>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <div id="mapPedidos"></div>
+        </div>
+        <div class="card">
+          <table class="table" id="tbPedidos">
+            <thead><tr>
+              <th>Pedido</th><th>Cliente</th><th>Prov.</th><th>Emp.</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONFIG -->
+    <section id="sec-cfg" class="section">
+      <h1>Config</h1>
+      <div class="card controls">
+        <input id="cfgClientes" style="min-width:320px" placeholder="URL CSV Clientes"/>
+        <input id="cfgKaraka" style="min-width:320px" placeholder="URL CSV Karaka"/>
+        <input id="cfgDistrib" style="min-width:320px" placeholder="URL CSV Distribuidora"/>
+        <button id="btnCfgSave" class="btn">Guardar</button>
+        <button id="btnCfgReload" class="btn secondary">Recargar data</button>
+        <button id="btnCfgTest" class="btn secondary">Probar carga</button>
+        <div id="cfgStatus" style="margin-left:8px;font-size:13px;color:#0b2542"></div>
+      </div>
+      <p class="badge">Consejo: usa siempre URLs de “<b>Publicar en la web</b>” en formato <b>CSV</b> (terminan con <code>output=csv</code>).</p>
+    </section>
+
+    <!-- Placeholders de otras secciones -->
+    <section id="sec-desp" class="section"><h1>Despachos</h1><div class="card">Módulo en preparación.</div></section>
+    <section id="sec-ent" class="section"><h1>Entregas</h1><div class="card">Módulo en preparación.</div></section>
+    <section id="sec-inc" class="section"><h1>Incidencias</h1><div class="card">Módulo en preparación.</div></section>
+    <section id="sec-kpi" class="section"><h1>KPIs</h1><div class="card">Módulo en preparación.</div></section>
+    <section id="sec-aud" class="section"><h1>Auditoría</h1><div class="card">Módulo en preparación.</div></section>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+  const CONFIG = {
+    sheets: {
+      clientesCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=193390473&single=true&output=csv",
+      pedidosKarakaCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=1945180719&single=true&output=csv",
+      pedidosDistribuidoraCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQt6FhUerc3A1eDpvKdM_KJ2yU8DTXy2MpmaRMeaORqzBxFVY70XzdAw-aL9e10V8l-hsIUKUlj5Ygn/pub?gid=919779363&single=true&output=csv"
+    }
+  };
+  const state = { clientes:[], pedidos:[], map:null, markers:[], filtros:{} };
+
+  // ---------- util ----------
+  function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._to); t._to=setTimeout(()=>t.style.display='none',2600); }
+  function csvToArray(text){
+    if(!window.Papa){ throw new Error('PapaParse no cargó'); }
+    const res = Papa.parse(text.trim(), {header:true, skipEmptyLines:true});
+    return res.data;
+  }
+  async function fetchCsv(url){
+    const u = url + (url.includes('?')?'&':'?') + 'cb=' + Date.now();
+    let r;
+    try{ r = await fetch(u, {cache:'no-store', mode:'cors'}); }catch(e){ throw new Error('Conexión fallida'); }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const tx = await r.text();
+    if(!tx || !tx.trim()) throw new Error('CSV vacío');
+    return csvToArray(tx);
+  }
+  function get(obj,keys,def){ for(const k of keys){ if(obj[k]!=null && obj[k]!=='') return obj[k]; } return def; }
+  function norm(x){ return (x||'').toString().trim(); }
+
+  // ---------- data load ----------
+  async function loadAll(){
+    const diag = document.getElementById('diagStatus'); if(diag) diag.innerHTML='Cargando...';
+    const cfg = JSON.parse(localStorage.getItem('l360_cfg')||'null') || CONFIG.sheets;
+    const [cli, kar, dis] = await Promise.all([
+      fetchCsv(cfg.clientesCsvUrl),
+      fetchCsv(cfg.pedidosKarakaCsvUrl),
+      fetchCsv(cfg.pedidosDistribuidoraCsvUrl)
+    ]);
+    state.clientes = cli.map(r=>({...r, cod:norm(get(r,['Cod Empresa','COD EMPRESA','cod_empresa','codigo','Código']))}));
+    function mapPedido(r, empresa){
+      const id = get(r,['PEDIDO','Pedido','Factura N','Factura','ID','id','N° Pedido'], '');
+      const cod = norm(get(r,['Cod Empresa','COD EMPRESA','cod_empresa','codigo','Código']));
+      const fecha = get(r,['FECHA','Fecha','Fecha Programacion','F. Programacion','F. Prog','fecha'], '');
+      const estado = get(r,['ESTADO','Estado','Status','STATUS'], '');
+      return { id, cod, empresa, fecha, estado, raw:r };
+    }
+    const pedidos = [...kar.map(r=>mapPedido(r,'karaka')), ...dis.map(r=>mapPedido(r,'distribuidora'))]
+      .filter(p=>p.id && p.cod);
+    // join con clientes
+    const byCod = new Map(state.clientes.map(c=>[c.cod, c]));
+    state.pedidos = pedidos.map(p=>{
+      const c = byCod.get(p.cod);
+      return {...p,
+        cliente: c? (c['RazonSocial']||c['razonsocial']||c['Cliente']||''): '',
+        provincia: c? (c['provincia']||c['Provincia']||''): '',
+        vendedor: c? (c['vendedor']||c['Vendedor']||''): '',
+        gestor: c? (c['gestor_servicio']||c['gestor']||''): '',
+        lat: c? parseFloat(c['latitud']||c['Latitud']||'') : null,
+        lon: c? parseFloat(c['longitud']||c['Longitud']||'') : null
+      };
+    });
+
+    // diagnóstico visual
+    const mk = (name, ok, rows, url) => `<span class="badge" style="border-radius:8px;background:${ok?'#e8fff3':'#fff0f0'};border-color:${ok?'#86efac':'#fecaca'}"><b>${name}</b>: ${ok?rows+' filas':'ERROR'} <a href="${url}" target="_blank" style="text-decoration:underline;margin-left:6px">abrir</a></span>`;
+    if(diag){
+      diag.innerHTML = [
+        mk('Clientes', Array.isArray(cli) && cli.length>0, cli.length, cfg.clientesCsvUrl),
+        mk('Karaka', Array.isArray(kar) && kar.length>0, kar.length, cfg.pedidosKarakaCsvUrl),
+        mk('Distribuidora', Array.isArray(dis) && dis.length>0, dis.length, cfg.pedidosDistribuidoraCsvUrl)
+      ].join(' ');
+    }
+
+    buildFilters(); renderMap(); renderTabla();
+    toast('Datos cargados: '+state.pedidos.length+' pedidos');
+  }
+
+  // ---------- filtros + UI ----------
+  function buildFilters(){
+    const vendedores = Array.from(new Set(state.pedidos.map(p=>p.vendedor).filter(Boolean))).sort();
+    const gestores   = Array.from(new Set(state.pedidos.map(p=>p.gestor).filter(Boolean))).sort();
+    const provs      = Array.from(new Set(state.pedidos.map(p=>p.provincia).filter(Boolean))).sort();
+    const fV = document.getElementById('fVendedor'); fV.innerHTML='<option value="todos">Todos</option>'+vendedores.map(v=>`<option>${v}</option>`).join('');
+    const fG = document.getElementById('fGestor');    fG.innerHTML='<option value="todos">Todos</option>'+gestores.map(v=>`<option>${v}</option>`).join('');
+    const fP = document.getElementById('fProv');      fP.innerHTML='<option value="todas">Todas</option>'+provs.map(v=>`<option>${v}</option>`).join('');
+  }
+  function applyFilters(arr){
+    const emp = document.getElementById('fEmpresa').value;
+    const ven = document.getElementById('fVendedor').value;
+    const ges = document.getElementById('fGestor').value;
+    const prv = document.getElementById('fProv').value;
+    const q   = document.getElementById('fQ').value.trim().toLowerCase();
+    return arr.filter(p=>
+      (emp==='todas' || p.empresa===emp) &&
+      (ven==='todos' || (p.vendedor||'')===ven) &&
+      (ges==='todos' || (p.gestor||'')===ges) &&
+      (prv==='todas' || (p.provincia||'')===prv) &&
+      (!q || [p.id,p.cliente,p.estado,p.provincia].join(' ').toLowerCase().includes(q))
+    );
+  }
+
+  // ---------- mapa ----------
+  function ensureMap(){
+    if(!window.L){ document.getElementById('mapPedidos').innerHTML='<div style="padding:12px;color:#b91c1c">Error: Leaflet no cargó. Revisa la conexión a CDN.</div>'; return null; }
+    if(!state.map){
+      state.map = L.map('mapPedidos',{zoomControl:true}).setView([18.7357,-70.1627],8);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap' }).addTo(state.map);
+    }
+    return state.map;
+  }
+  function clearMarkers(){
+    state.markers.forEach(m=>m.remove());
+    state.markers.length=0;
+  }
+  function renderMap(){
+    const map = ensureMap(); if(!map) return;
+    clearMarkers();
+    const data = applyFilters(state.pedidos);
+    data.forEach(p=>{
+      if(!isFinite(p.lat)||!isFinite(p.lon)) return;
+      const mk = L.marker([p.lat,p.lon]).addTo(map).bindPopup(
+        '<b>'+ (p.cliente||'(sin cliente)') +'</b><br>Pedido: '+p.id+'<br>Empresa: '+p.empresa+'<br>Gestor: '+(p.gestor||'')+'<br>Vendedor: '+(p.vendedor||'')
+      );
+      state.markers.push(mk);
+    });
+    if(data.length>0){
+      const coords = data.filter(p=>isFinite(p.lat)&&isFinite(p.lon)).map(p=>[p.lat,p.lon]);
+      if(coords.length>0){ const b = L.latLngBounds(coords); map.fitBounds(b.pad(0.2)); }
+    }
+  }
+
+  // ---------- tabla ----------
+  function renderTabla(){
+    const tb = document.querySelector('#tbPedidos tbody'); tb.innerHTML='';
+    const data = applyFilters(state.pedidos);
+    const frag = document.createDocumentFragment();
+    data.forEach(p=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+p.id+'</td><td>'+ (p.cliente||'') +'</td><td>'+ (p.provincia||'') +'</td><td>'+p.empresa+'</td>';
+      frag.appendChild(tr);
+    });
+    tb.appendChild(frag);
+  }
+
+  // ---------- config ----------
+  function loadConfigToUI(){
+    const cfg = JSON.parse(localStorage.getItem('l360_cfg')||'null') || CONFIG.sheets;
+    document.getElementById('cfgClientes').value = cfg.clientesCsvUrl || '';
+    document.getElementById('cfgKaraka').value   = cfg.pedidosKarakaCsvUrl || '';
+    document.getElementById('cfgDistrib').value  = cfg.pedidosDistribuidoraCsvUrl || '';
+  }
+  function saveConfig(){
+    const cfg = {
+      clientesCsvUrl: document.getElementById('cfgClientes').value.trim(),
+      pedidosKarakaCsvUrl: document.getElementById('cfgKaraka').value.trim(),
+      pedidosDistribuidoraCsvUrl: document.getElementById('cfgDistrib').value.trim()
+    };
+    localStorage.setItem('l360_cfg', JSON.stringify(cfg));
+    toast('Config guardada');
+  }
+
+  // ---------- probar carga ----------
+  async function testConfig(){
+    const s = document.getElementById('cfgStatus'); s.textContent = 'Probando...';
+    const u1=document.getElementById('cfgClientes').value.trim();
+    const u2=document.getElementById('cfgKaraka').value.trim();
+    const u3=document.getElementById('cfgDistrib').value.trim();
+    const out=[];
+    for(const [name,url] of [['Clientes',u1],['Karaka',u2],['Distribuidora',u3]]){
+      try{ const arr=await fetchCsv(url); out.push(`${name}: OK (${arr.length} filas)`); }
+      catch(e){ out.push(`${name}: ERROR (${e.message})`); }
+    }
+    s.textContent = out.join('  •  ');
+  }
+
+  // ---------- nav robusto ----------
+  function showSection(sec){
+    document.querySelectorAll('.navbar .tab').forEach(x=>x.classList.remove('active'));
+    const act=document.querySelector('.navbar .tab[data-sec="'+sec+'"]'); if(act) act.classList.add('active');
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    (document.getElementById('sec-'+sec)||document.getElementById('sec-ped')).classList.add('active');
+    if(sec==='ped'){ renderMap(); renderTabla(); }
+    if(sec==='cfg'){ loadConfigToUI(); }
+  }
+  document.querySelectorAll('.navbar .tab').forEach(a=>a.addEventListener('click',e=>{
+    e.preventDefault(); const sec=e.currentTarget.dataset.sec||'ped';
+    if(location.hash!=='#'+sec){ location.hash=sec; } else showSection(sec);
+  }));
+  window.addEventListener('hashchange',()=> showSection((location.hash||'').replace('#','')||'ped'));
+
+  // eventos
+  document.getElementById('btnRefrescar').addEventListener('click',()=>{ renderMap(); renderTabla(); });
+  ['fEmpresa','fVendedor','fGestor','fProv','fQ'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{ renderMap(); renderTabla(); })
+  });
+  document.getElementById('btnCfgSave').addEventListener('click',saveConfig);
+  document.getElementById('btnCfgReload').addEventListener('click',()=>loadAll().catch(e=>toast(e.message)));
+  document.getElementById('btnCfgTest').addEventListener('click',()=>testConfig().catch(e=>toast(e.message)));
+
+  // inicio
+  window.addEventListener('load',()=>{
+    loadConfigToUI();
+    loadAll().catch(e=>{ toast('No se pudo cargar la data: '+e.message); console.error(e); });
+    showSection((location.hash||'').replace('#','')||'ped');
+  });
+  </script>
+</body>
+</html>
