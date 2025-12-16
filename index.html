@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Finanzas 360 - Control Total (v1.4.0)</title>
+  <title>Finanzas 360 - Control Total (v1.4.3)</title>
   <style>
     :root{
       --bg:#f6f8fc; --card:#ffffff; --text:#0b1220; --muted:#5c6b84; --line:rgba(20,30,55,.12);
@@ -170,7 +170,7 @@
         <div class="logo">360</div>
         <div class="title">
           <b>Finanzas 360 — Ingresos, Gastos, Bonos, TDC y Reportes</b>
-          <span>v1.4.0 • Registros por fecha • Métodos de pago • Bonos CCN/Combustible • Offline (guarda automático)</span>
+          <span>v1.4.3 • Registros por fecha • Métodos de pago • Bonos CCN/Combustible • Offline (guarda automático)</span>
         </div>
       </div>
       <div class="actions">
@@ -605,22 +605,19 @@
   }
 
   async function sheetsPost(mv){
-    // Para POST, usamos fetch con no-cors (no necesitamos leer respuesta)
-    const payload = Object.assign({}, mv);
-    payload.id = payload.id || mv.id;
-    payload.origen = payload.origen || ("FIN360_" + getDeviceId());
-    try {
-      await fetch(SHEETS_ENDPOINT, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
-      return true;
-    } catch(e) {
-      return false;
-    }
+  // Envío por JSONP (GET) para evitar CORS incluso en GitHub Pages / file://
+  // Requiere Apps Script: doGet?action=append&payload=...&callback=...
+  const payload = Object.assign({}, mv);
+  payload.id = payload.id || (crypto?.randomUUID ? crypto.randomUUID() : ("mv_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
+  payload.origen = payload.origen || ("FIN360_" + getDeviceId());
+  const url = SHEETS_ENDPOINT + "?action=append&payload=" + encodeURIComponent(JSON.stringify(payload));
+  try{
+    const res = await jsonp(url);
+    return !!(res && res.status === "OK");
+  }catch(e){
+    return false;
   }
+}
 
   function getLastSyncMs(){
     const v = Number(localStorage.getItem(LS_LAST_SYNC) || 0) || 0;
