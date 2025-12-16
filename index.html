@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Finanzas 360 - Control Total (v1.4.1 (Multi‑PC Live))</title>
+  <title>Finanzas 360 - Control Total (v1.4.0)</title>
   <style>
     :root{
       --bg:#f6f8fc; --card:#ffffff; --text:#0b1220; --muted:#5c6b84; --line:rgba(20,30,55,.12);
@@ -160,18 +160,7 @@
       background:#fff; font-size:12px; font-weight:900; cursor:pointer;
     }
     .chip.active{background: rgba(14,163,113,.10); border-color: rgba(14,163,113,.30);}
-  
-    #syncBadge.badge{
-      display:inline-flex; align-items:center; gap:6px;
-      padding:8px 10px; border-radius:999px;
-      border:1px solid var(--border);
-      background:rgba(0,0,0,.02);
-      font-weight:700; font-size:12px;
-    }
-    #syncBadge[data-status="ok"]{ border-color: rgba(16,185,129,.45); }
-    #syncBadge[data-status="err"]{ border-color: rgba(239,68,68,.55); }
-    #syncBadge[data-status="sync"]{ border-color: rgba(59,130,246,.55); }
-</style>
+  </style>
 </head>
 <body>
 <header>
@@ -181,7 +170,7 @@
         <div class="logo">360</div>
         <div class="title">
           <b>Finanzas 360 — Ingresos, Gastos, Bonos, TDC y Reportes</b>
-          <span>v1.4.1 (Multi‑PC Live) • Registros por fecha • Métodos de pago • Bonos CCN/Combustible • Offline (guarda automático)</span>
+          <span>v1.4.0 • Registros por fecha • Métodos de pago • Bonos CCN/Combustible • Offline (guarda automático)</span>
         </div>
       </div>
       <div class="actions">
@@ -191,8 +180,6 @@
         <input id="fileImport" type="file" accept="application/json" class="hidden"/>
         <button id="btnReset" class="btn-danger">Reiniciar</button>
         <button id="btnHelp" class="btn-primary">Guía</button>
-        <button id="btnSyncNow" class="btn">Sincronizar</button>
-        <span id="syncBadge" class="badge" data-status="idle">Sync</span>
       </div>
     </div>
   </div>
@@ -559,207 +546,147 @@
 </div>
 
 <script>
-  const SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwDJHTxizmB1dh6PswM2CRrvwfa2fBeHjSr36rIdn1bPzM-UdClf1uBvzLEoliw9RGFAw/exec';
-  // === Multi-PC Sync (Google Sheets) ===
-  const STORAGE_KEY_PENDING = "fin360_pending_queue_v1";
-  const STORAGE_KEY_DEVICE  = "fin360_device_id_v1";
-  const STORAGE_KEY_LASTSYNC= "fin360_last_sync_ms_v1";
-  const DEVICE_ID = (()=>{
-    const existing = localStorage.getItem(STORAGE_KEY_DEVICE);
-    if(existing) return existing;
-    const id = (crypto?.randomUUID ? crypto.randomUUID() : (Date.now().toString(16)+Math.random().toString(16).slice(2)));
-    localStorage.setItem(STORAGE_KEY_DEVICE, id);
-    return id;
-  })();
+(() => {
+  const LS_KEY = "finanzas_360_v1_3_0";
 
-  function uuidv4(){
-    if(crypto?.randomUUID) return crypto.randomUUID();
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c=>{
-      const r = Math.random()*16|0, v = c==="x" ? r : (r&0x3|0x8);
-      return v.toString(16);
-    });
+  // === Multi‑PC (Google Sheets) ===
+  const SHEETS_ENDPOINT = "https://script.google.com/macros/s/AKfycbwDJHTxizmB1dh6PswM2CRrvwfa2fBeHjSr36rIdn1bPzM-UdClf1uBvzLEoliw9RGFAw/exec";
+  const LS_LAST_SYNC = "fin360_last_sync_ms_v1";
+  const DEVICE_ID_KEY = "fin360_device_id_v1";
+
+  function getDeviceId(){
+    try {
+      const existing = localStorage.getItem(DEVICE_ID_KEY);
+      if(existing) return existing;
+      const id = (crypto?.randomUUID ? crypto.randomUUID() : ("dev_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
+      localStorage.setItem(DEVICE_ID_KEY, id);
+      return id;
+    } catch(e) {
+      return "dev_"+Date.now();
+    }
   }
 
-  function getPendingQueue(){
-    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY_PENDING)||"[]") || []; }catch(_){ return []; }
-  }
-  function setPendingQueue(q){
-    localStorage.setItem(STORAGE_KEY_PENDING, JSON.stringify(q||[]));
-  }
-
-  function setSyncBadge(status, text){
+  function setSyncBadge(kind, text){
     const el = document.getElementById("syncBadge");
     if(!el) return;
-    el.dataset.status = status || "idle";
-    el.textContent = text || (status==="ok" ? "Sincronizado" : status==="err" ? "Sin sync" : status==="sync" ? "Sincronizando…" : "Sync");
-  }
-
-  async function postToSheets(payload){
-    // Use no-cors to allow GitHub Pages / file:// origins to send to Apps Script.
-    // We can't reliably read the response in no-cors mode, but the write will succeed.
-    const res = await fetch(SHEETS_ENDPOINT, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    // If fetch resolves, assume OK.
-    return { status: "OK", opaque: true, ok: !!res };
+    el.classList.remove("ok","sync","err");
+    if(kind) el.classList.add(kind);
+    el.textContent = text || "—";
   }
 
   function jsonp(url){
     return new Promise((resolve, reject)=>{
-      const cb = "fin360_cb_" + Math.random().toString(36).slice(2);
+      const cb = "fin360_cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
       const s = document.createElement("script");
-      const timer = setTimeout(()=>{ cleanup(); reject(new Error("Timeout")); }, 15000);
-
-      function cleanup(){
-        clearTimeout(timer);
-        delete window[cb];
+      const cleanup = ()=>{
+        try { delete window[cb]; } catch(_e) { window[cb] = undefined; }
         if(s && s.parentNode) s.parentNode.removeChild(s);
-      }
-
-      window[cb] = (data)=>{ cleanup(); resolve(data); };
-      const u = new URL(url);
-      u.searchParams.set("callback", cb);
-      s.src = u.toString();
-      s.onerror = ()=>{ cleanup(); reject(new Error("Error cargando JSONP")); };
+      };
+      const timer = setTimeout(()=>{ cleanup(); reject(new Error("Timeout JSONP")); }, 15000);
+      window[cb] = (data)=>{ clearTimeout(timer); cleanup(); resolve(data); };
+      s.onerror = ()=>{ clearTimeout(timer); cleanup(); reject(new Error("Error cargando JSONP")); };
+      const sep = url.includes("?") ? "&" : "?";
+      s.src = url + sep + "callback=" + encodeURIComponent(cb);
       document.head.appendChild(s);
     });
   }
 
-  async function listFromSheets(sinceMs){
-    const url = new URL(SHEETS_ENDPOINT);
-    url.searchParams.set("action","list");
-    if(typeof sinceMs==="number" && isFinite(sinceMs)) url.searchParams.set("since", String(sinceMs));
-    // Use JSONP to bypass CORS
-    return await jsonp(url.toString());
-  } catch(_) { return { status:"ERROR", message:"Respuesta no-JSON", raw: txt }; }
+  async function sheetsListSince(sinceMs){
+    const url = SHEETS_ENDPOINT + "?action=list&since=" + encodeURIComponent(sinceMs || 0);
+    // JSONP evita CORS (funciona en GitHub Pages y file://)
+    return await jsonp(url);
   }
 
-  function movementToPayload(m){
-    return {
-      id: m.id,
-      fecha: m.date || "",
-      tipo: m.type || "",
-      categoria: m.category || "",
-      subcategoria: m.subcategory || "",
-      metodo_pago: m.method || "",
-      monto: Number(m.amount)||0,
-      moneda: m.currency || "DOP",
-      cuenta_origen: m.accountFrom || "",
-      cuenta_destino: m.accountTo || "",
-      detalle: m.note || "",
-      origen: "FIN360@" + DEVICE_ID,
-      client_ts: m._client_ts || new Date().toISOString()
-    };
+  function ensureMovementId(mv){
+    if(!mv) return mv;
+    if(!mv.id) mv.id = (crypto?.randomUUID ? crypto.randomUUID() : ("mv_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
+    if(!mv.origen) mv.origen = "FIN360_" + getDeviceId();
+    return mv;
   }
 
-  function queueMovementForSheets(m){
-    // If already synced, skip
-    if(m._synced) return;
-    const q = getPendingQueue();
-    if(!q.find(x=> x.id === m.id)){
-      q.push({ id: m.id });
-      setPendingQueue(q);
+  async function sheetsPost(mv){
+    // Para POST, usamos fetch con no-cors (no necesitamos leer respuesta)
+    const payload = Object.assign({}, mv);
+    payload.id = payload.id || mv.id;
+    payload.origen = payload.origen || ("FIN360_" + getDeviceId());
+    try {
+      await fetch(SHEETS_ENDPOINT, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return true;
+    } catch(e) {
+      return false;
     }
-    flushQueueToSheets(); // fire and forget
   }
 
-  async function flushQueueToSheets(){
-    // Prevent parallel flushes
-    if(window.__fin360Flushing) return;
-    window.__fin360Flushing = true;
-    try{
-      const q = getPendingQueue();
-      if(!q.length){ setSyncBadge("ok","Sincronizado"); return; }
-
-      setSyncBadge("sync","Enviando…");
-      // Build map for quick lookup
-      const byId = new Map((state.movements||[]).map(x=> [x.id, x]));
-      const remaining = [];
-      for(const item of q){
-        const m = byId.get(item.id);
-        if(!m){ continue; } // removed locally
-        try{
-          const resp = await postToSheets(movementToPayload(m));
-          if(resp && (resp.status==="OK" || resp.status==="ok" || resp.raw==="OK")){
-            m._synced = true;
-          }else{
-            remaining.push(item);
-          }
-        }catch(_){
-          remaining.push(item);
-        }
-      }
-      setPendingQueue(remaining);
-      save(); recalcAll();
-      setSyncBadge(remaining.length ? "err" : "ok", remaining.length ? ("Pendientes: "+remaining.length) : "Sincronizado");
-    } finally {
-      window.__fin360Flushing = false;
-    }
+  function getLastSyncMs(){
+    const v = Number(localStorage.getItem(LS_LAST_SYNC) || 0) || 0;
+    return v;
+  }
+  function setLastSyncMs(ms){
+    localStorage.setItem(LS_LAST_SYNC, String(ms||0));
   }
 
   async function syncFromSheets(){
-    try{
-      setSyncBadge("sync","Leyendo…");
-      const last = Number(localStorage.getItem(STORAGE_KEY_LASTSYNC)||"0") || 0;
-      const resp = await listFromSheets(last);
-      if(!resp || resp.status==="ERROR"){
+    setSyncBadge("sync","Sync…");
+    try {
+      const since = getLastSyncMs();
+      const res = await sheetsListSince(since);
+      if(!res || res.status !== "OK") {
         setSyncBadge("err","Sin sync");
         return;
       }
-      const items = resp.items || resp.data || [];
-      const maxTs = resp.maxTs || last;
 
-      // Merge by id
-      const existing = new Map((state.movements||[]).map(x=> [x.id, x]));
-      let added = 0;
-      for(const r of items){
-        const id = r.id || r.client_id || r._id;
+      const items = Array.isArray(res.items) ? res.items : [];
+      let imported = 0;
+
+      // build index by id for existing
+      const byId = new Map((state.movimientos||[]).filter(x=>x && x.id).map(x=>[x.id, x]));
+
+      for(const it of items){
+        if(!it) continue;
+        const id = it.id ? String(it.id) : "";
         if(!id) continue;
-        if(existing.has(id)) continue;
 
-        const mv = {
-          id,
-          date: r.fecha || r.date || "",
-          type: r.tipo || r.type || "",
-          category: r.categoria || r.category || "",
-          subcategory: r.subcategoria || r.subcategory || "",
-          method: r.metodo_pago || r.method || "",
-          amount: Number(r.monto)||0,
-          currency: r.moneda || "DOP",
-          accountFrom: r.cuenta_origen || "",
-          accountTo: r.cuenta_destino || "",
-          note: r.detalle || "",
-          _device: r.origen || "",
-          _synced: true,
-          _server_ts: r.timestamp || r.server_ts || "",
-          _client_ts: r.client_ts || ""
-        };
-        state.movements.push(mv);
-        added++;
+        if(!byId.has(id)) {
+          // normalize incoming movement to local schema
+          const mv = {
+            id,
+            fecha: it.fecha || "",
+            tipo: it.tipo || "",
+            categoria: it.categoria || "",
+            subcategoria: it.subcategoria || "",
+            metodo_pago: it.metodo_pago || "",
+            monto: Number(it.monto)||0,
+            moneda: it.moneda || "DOP",
+            cuenta_origen: it.cuenta_origen || "",
+            cuenta_destino: it.cuenta_destino || "",
+            detalle: it.detalle || "",
+            origen: it.origen || "",
+            timestamp: it.timestamp || ""
+          };
+          state.movimientos.push(mv);
+          byId.set(id, mv);
+          imported++;
+        }
       }
-      if(added){
-        state.movements.sort((a,b)=> (a.date||"").localeCompare(b.date||"") || ((a.id||"").localeCompare(b.id||"")));
-        save(); recalcAll();
-      }
-      localStorage.setItem(STORAGE_KEY_LASTSYNC, String(maxTs));
-      setSyncBadge("ok", added ? ("Sync +"+added) : "Sincronizado");
-      // After pulling, try flush pending
-      flushQueueToSheets();
-    } catch(_){
+
+      if(res.maxTs) setLastSyncMs(Number(res.maxTs)||Date.now());
+      save();
+
+      // refrescar UI principal
+      try { recalcAll(); buildReport(); } catch(_e) {}
+
+      setSyncBadge("ok", imported ? ("Sync +" + imported) : "Sync OK");
+    } catch(e) {
       setSyncBadge("err","Sin sync");
     }
   }
 
-  // Auto-sync: on load + every 20s + when coming back online
-  window.addEventListener("online", ()=> { flushQueueToSheets(); syncFromSheets(); });
-  document.addEventListener("visibilitychange", ()=> { if(!document.hidden) syncFromSheets(); });
 
-
-(() => {
-  const LS_KEY = "finanzas_360_v1_3_0";
   const fmtRD = new Intl.NumberFormat("es-DO", { style:"currency", currency:"DOP", maximumFractionDigits:0 });
   const fmtUS = new Intl.NumberFormat("en-US", { style:"currency", currency:"USD", maximumFractionDigits:2 });
   const $ = (id) => document.getElementById(id);
@@ -880,18 +807,9 @@
   // --- Movimientos ---
   function mvMonth(dateStr){ return (dateStr||"").slice(0,7); }
   function addMovement(entry){
-    // Ensure basic fields
-    entry.id = entry.id || uuidv4();
-    entry._device = DEVICE_ID;
-    entry._client_ts = entry._client_ts || new Date().toISOString();
-    entry._synced = entry._synced || false;
-
     state.movements.push(entry);
-    state.movements.sort((a,b)=> (a.date||"").localeCompare(b.date||"") || (a.time||"").localeCompare(b.time||"") || ((a.id||"").localeCompare(b.id||"")));
+    state.movements.sort((a,b)=> (a.date||"").localeCompare(b.date||"") || (a.id||"").localeCompare(b.id||""));
     save(); recalcAll();
-
-    // Try to sync immediately (falls back to queue if offline/error)
-    queueMovementForSheets(entry);
   }
   function deleteMovement(id){
     state.movements = state.movements.filter(x=>x.id !== id);
@@ -1661,6 +1579,7 @@
     });
 
     $("btnHelp").addEventListener("click", ()=> $("modal").classList.remove("hidden"));
+      $("btnSync") && $("btnSync").addEventListener("click", ()=> syncFromSheets());
     $("btnClose").addEventListener("click", ()=> $("modal").classList.add("hidden"));
     $("modal").addEventListener("click", (e)=>{ if(e.target.id==="modal") $("modal").classList.add("hidden"); });
 
@@ -1676,7 +1595,10 @@
 
     // Registrar movimiento
     $("btnAddMv").addEventListener("click", ()=>{
-      const date = $("mvDate").value;
+      const date = $("mvDate").value
+      // Asignar ID/origen para sincronización multi-PC
+      const mvId = (crypto?.randomUUID ? crypto.randomUUID() : ("mv_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
+      const mvOrigen = "FIN360_" + getDeviceId();;
       const type = $("mvType").value;
       const amountRD = Number($("mvAmount").value)||0;
       const categoryId = $("mvCategory").value || "";
@@ -1733,13 +1655,6 @@
     buildReport();
     buildCalendar();
     recalcAll();
-
-    // Sync button (Multi-PC)
-    if($("btnSyncNow")){
-      $("btnSyncNow").addEventListener("click", ()=> syncFromSheets());
-    }
-    // Initial badge
-    setSyncBadge("idle","Sync");
   }
 
   function init(){
