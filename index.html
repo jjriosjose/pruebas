@@ -1,1670 +1,596 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Finanzas 360 - Control Total (v1.4.3)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rutina Mancuernas (PUSH / PULL / LEGS + UPPER) — Jorge</title>
   <style>
     :root{
-      --bg:#f6f8fc; --card:#ffffff; --text:#0b1220; --muted:#5c6b84; --line:rgba(20,30,55,.12);
-      --good:#0ea371; --warn:#c88400; --bad:#d11f3a; --accent:#2563eb; --accent2:#7c3aed;
-      --shadow: 0 14px 30px rgba(12,20,40,.10); --r:18px;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --bg:#0b1020; --card:#111a33; --muted:#93a4c7; --text:#eaf0ff;
+      --accent:#6ee7ff; --accent2:#a78bfa; --ok:#34d399; --warn:#fbbf24; --bad:#fb7185;
+      --border:rgba(255,255,255,.10);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    [data-theme="light"]{
+      --bg:#f6f8ff; --card:#ffffff; --muted:#4b5a7a; --text:#0b1020;
+      --accent:#0077ff; --accent2:#7c3aed; --border:rgba(11,16,32,.12);
+      --shadow: 0 10px 30px rgba(11,16,32,.12);
     }
     *{box-sizing:border-box}
     body{
-      margin:0; font-family:var(--sans);
-      background:
-        radial-gradient(1100px 700px at 10% 0%, rgba(37,99,235,.10), transparent 60%),
-        radial-gradient(900px 650px at 90% 10%, rgba(124,58,237,.10), transparent 60%),
-        radial-gradient(900px 650px at 60% 105%, rgba(14,163,113,.08), transparent 55%),
-        var(--bg);
+      margin:0; font-family:var(--sans); background: radial-gradient(1200px 600px at 20% 0%, rgba(110,231,255,.18), transparent 60%),
+      radial-gradient(900px 500px at 90% 10%, rgba(167,139,250,.18), transparent 60%),
+      var(--bg);
       color:var(--text);
     }
+    .wrap{max-width:1100px; margin:0 auto; padding:20px 16px 40px}
     header{
-      position:sticky; top:0; z-index:20;
-      backdrop-filter: blur(10px);
-      background: rgba(246,248,252,.75);
-      border-bottom:1px solid var(--line);
+      display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      margin-bottom:14px;
     }
-    .wrap{max-width:1260px; margin:0 auto; padding:18px 16px;}
-    .topbar{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
-    .brand{display:flex; gap:12px; align-items:center;}
-    .logo{
-      width:40px; height:40px; border-radius:12px;
-      background: linear-gradient(135deg, rgba(37,99,235,.95), rgba(124,58,237,.90));
-      box-shadow: var(--shadow);
-      display:grid; place-items:center; font-weight:900; color:#fff;
+    .title{
+      display:flex; flex-direction:column; gap:6px;
     }
-    .title{display:flex; flex-direction:column; line-height:1.15;}
-    .title b{font-size:14px; letter-spacing:.2px;}
-    .title span{font-size:12px; color:var(--muted);}
-    .actions{display:flex; gap:10px; flex-wrap:wrap;}
-    button{
-      border:1px solid var(--line);
-      background: rgba(15,23,42,.02);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius:12px;
-      cursor:pointer;
-      transition:.15s ease;
-      font-weight:800;
+    h1{margin:0; font-size:22px; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:13px; line-height:1.35}
+    .pillrow{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .pill{
+      border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--text);
+      padding:8px 10px; border-radius:999px; font-size:12px;
+      display:inline-flex; gap:8px; align-items:center;
     }
-    button:hover{transform: translateY(-1px); background: rgba(37,99,235,.06); border-color: rgba(37,99,235,.22);}
-    .btn-primary{
-      background: linear-gradient(135deg, rgba(37,99,235,.92), rgba(124,58,237,.82));
-      border-color: rgba(37,99,235,.26);
-      color:#fff;
+    [data-theme="light"] .pill{background:rgba(11,16,32,.03)}
+    .pill b{font-family:var(--mono); font-weight:700; letter-spacing:.2px}
+    .btn{
+      border:1px solid var(--border); background:linear-gradient(180deg, rgba(110,231,255,.18), rgba(167,139,250,.10));
+      color:var(--text); padding:10px 12px; border-radius:12px; cursor:pointer;
+      font-weight:700; font-size:13px;
+      box-shadow:var(--shadow);
+      user-select:none;
     }
-    .btn-danger{background: rgba(209,31,58,.08); border-color: rgba(209,31,58,.20); color: #7a1222;}
-    .btn-ghost{background: transparent;}
-    .grid{display:grid; gap:14px;}
-    @media (min-width: 980px){ .grid.cols-2{grid-template-columns: 1.25fr .75fr;} }
+    .btn.secondary{background:transparent; box-shadow:none}
+    .btn:active{transform:translateY(1px)}
+    .row{display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; margin-top:12px}
+    @media (max-width: 920px){ .row{grid-template-columns:1fr} }
     .card{
-      background: var(--card);
-      border:1px solid var(--line);
-      border-radius: var(--r);
-      box-shadow: var(--shadow);
-      overflow:hidden;
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:var(--shadow); overflow:hidden;
     }
     .card .hd{
-      padding:14px 14px 10px;
-      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
-      border-bottom:1px solid var(--line);
+      padding:14px 14px 10px; border-bottom:1px solid var(--border);
+      display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;
     }
-    .card .hd h2{margin:0; font-size:14px; letter-spacing:.2px;}
-    .card .hd p{margin:4px 0 0; color:var(--muted); font-size:12px;}
-    .card .bd{padding:14px;}
-    .kpis{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px;}
-    @media(min-width: 720px){ .kpis{grid-template-columns: repeat(4, minmax(0,1fr));}}
-    .kpi{
-      background: rgba(15,23,42,.02);
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:12px;
-      min-height:92px;
+    .card .hd h2{margin:0; font-size:15px}
+    .card .bd{padding:12px 14px 14px}
+    .tabs{display:flex; gap:8px; flex-wrap:wrap}
+    .tab{
+      border:1px solid var(--border); background:transparent; color:var(--text);
+      padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:800; font-size:13px;
     }
-    .kpi .l{font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:8px;}
-    .kpi .v{margin-top:8px; font-size:18px; font-weight:900;}
-    .pill{font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted);}
-    .pill.good{color:var(--good); border-color: rgba(14,163,113,.25); background: rgba(14,163,113,.08);}
-    .pill.warn{color:var(--warn); border-color: rgba(200,132,0,.25); background: rgba(200,132,0,.08);}
-    .pill.bad{color:var(--bad); border-color: rgba(209,31,58,.25); background: rgba(209,31,58,.08);}
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;}
-    .field{display:flex; flex-direction:column; gap:6px; min-width: 160px; flex: 1;}
-    label{font-size:12px; color:var(--muted);}
-    input, select{
-      border-radius:12px;
-      padding:10px 10px;
-      border:1px solid var(--line);
-      background: #fff;
-      color:var(--text);
-      outline:none;
+    .tab.active{background:linear-gradient(180deg, rgba(110,231,255,.22), rgba(167,139,250,.14))}
+    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    @media (max-width: 720px){ .grid2{grid-template-columns:1fr} }
+    .meta{
+      color:var(--muted); font-size:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center
     }
-    input:focus, select:focus{border-color: rgba(37,99,235,.45); box-shadow: 0 0 0 3px rgba(37,99,235,.12);}
-    .table{
-      width:100%;
-      border-collapse: collapse;
-      overflow:hidden;
-      border-radius: 14px;
-      border:1px solid var(--line);
+    .meta .k{padding:6px 8px; border:1px solid var(--border); border-radius:999px}
+    table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden}
+    th,td{padding:10px 8px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top}
+    th{font-size:12px; color:var(--muted); font-weight:800}
+    td{font-size:13px}
+    .exname{font-weight:900}
+    .links{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+    a.link{
+      text-decoration:none; color:var(--text);
+      border:1px solid var(--border); padding:6px 8px; border-radius:10px; font-size:12px;
+      background:rgba(255,255,255,.04);
     }
-    .table th, .table td{
-      padding:10px 10px;
-      border-bottom:1px solid var(--line);
-      font-size:12px;
-      text-align:left;
-      vertical-align:middle;
+    [data-theme="light"] a.link{background:rgba(11,16,32,.03)}
+    .hint{color:var(--muted); font-size:12px; margin-top:6px; line-height:1.35}
+    .chk{
+      display:flex; align-items:center; gap:8px;
+      font-size:12px; color:var(--muted);
     }
-    .table th{color: var(--muted); font-weight:900; background: rgba(15,23,42,.02);}
-    .table tr:last-child td{border-bottom:none;}
-    .right{text-align:right;}
-    .muted{color:var(--muted);}
-    .small{font-size:12px;}
+    input[type="checkbox"]{transform:scale(1.1)}
+    .in{
+      width:92px; padding:8px 8px; border-radius:10px; border:1px solid var(--border);
+      background:transparent; color:var(--text); font-family:var(--mono); font-size:12px;
+    }
+    .in.small{width:72px}
+    .in.long{width:140px}
+    .stack{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
     .badge{
-      font-size:11px; padding:4px 8px; border-radius:999px;
-      border:1px solid var(--line);
-      background: rgba(15,23,42,.02);
-      display:inline-flex; align-items:center; gap:6px;
-      white-space:nowrap;
+      display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px;
+      border:1px solid var(--border); font-size:12px; color:var(--muted);
     }
-    .badge i{width:8px; height:8px; border-radius:999px; display:inline-block;}
-    .i-good{background:var(--good);}
-    .i-warn{background:var(--warn);}
-    .i-bad{background:var(--bad);}
-    .alerts{display:flex; flex-direction:column; gap:10px;}
-    .alert{
-      border-radius:14px; border:1px solid var(--line);
-      background: rgba(15,23,42,.02);
-      padding:12px;
-      display:flex; gap:10px; align-items:flex-start;
+    .badge strong{color:var(--text)}
+    .timerBox{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      padding:12px; border-radius:14px; border:1px solid var(--border); background:rgba(255,255,255,.04);
     }
-    .alert .dot{width:10px; height:10px; border-radius:999px; margin-top:4px;}
-    .alert.good .dot{background: var(--good);}
-    .alert.warn .dot{background: var(--warn);}
-    .alert.bad .dot{background: var(--bad);}
-    .alert b{font-size:12px;}
-    .alert p{margin:4px 0 0; font-size:12px; color: var(--muted);}
-    .split{display:grid; gap:10px;}
-    @media(min-width: 720px){ .split{grid-template-columns: 1fr 1fr;}}
-    canvas{width:100%; height:220px; border-radius:14px; border:1px solid var(--line); background: rgba(15,23,42,.02);}
-    .tabs{display:flex; gap:8px; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--line);}
-    .tab{padding:8px 10px; border-radius:12px; border:1px solid var(--line); background: rgba(15,23,42,.02); font-size:12px; cursor:pointer; font-weight:900;}
-    .tab.active{background: rgba(37,99,235,.10); border-color: rgba(37,99,235,.30);}
-    .hidden{display:none;}
-    .hint{font-size:12px; color:var(--muted); margin-top:6px;}
-    .twoCols{display:grid; gap:10px;}
-    @media(min-width: 920px){ .twoCols{grid-template-columns: 1fr 1fr;} }
-    .chip{
-      padding:8px 10px; border-radius:12px; border:1px solid var(--line);
-      background:#fff; font-size:12px; font-weight:900; cursor:pointer;
+    [data-theme="light"] .timerBox{background:rgba(11,16,32,.03)}
+    .clock{
+      font-family:var(--mono); font-size:26px; font-weight:900; letter-spacing:1px;
     }
-    .chip.active{background: rgba(14,163,113,.10); border-color: rgba(14,163,113,.30);}
+    .note{
+      width:100%; min-height:92px; resize:vertical;
+      padding:10px; border-radius:12px; border:1px solid var(--border);
+      background:transparent; color:var(--text);
+      font-family:var(--sans); font-size:13px;
+    }
+    .footer{
+      margin-top:14px; color:var(--muted); font-size:12px; line-height:1.45
+    }
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    .split{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .right{margin-left:auto}
   </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">360</div>
-        <div class="title">
-          <b>Finanzas 360 — Ingresos, Gastos, Bonos, TDC y Reportes</b>
-          <span>v1.4.3 • Registros por fecha • Métodos de pago • Bonos CCN/Combustible • Offline (guarda automático)</span>
+  <div class="wrap" id="app">
+    <header>
+      <div class="title">
+        <h1>Rutina Mancuernas (4 días) — PUSH / PULL / LEGS + UPPER</h1>
+        <div class="sub">
+          Diseñada para: <b>87 kg</b>, 39–40 años, <b>ganancia limpia</b> y entreno nocturno (8–9 pm).<br/>
+          Reglas: 60–75 min • descanso 60–90 s • 1–2 reps en reserva (RIR) en la mayoría de series • progresión semanal.
+        </div>
+        <div class="pillrow">
+          <span class="pill">Post-entreno: <b>160 g gainer</b> + <b>300 g leche</b> (+ agua si lo quieres más ligero)</span>
+          <span class="pill">Objetivo: <b>+0.3–0.6 kg/sem</b> y cintura controlada</span>
+          <span class="pill">Progresión: <b>+1 rep</b> o <b>+1–2 kg</b> por semana</span>
         </div>
       </div>
-      <div class="actions">
-        <button id="btnExport" class="btn">Exportar (JSON)</button>
-        <button id="btnImport" class="btn">Importar (JSON)</button>
-        <button id="btnExportCSV" class="btn">Exportar Reporte (CSV)</button>
-        <input id="fileImport" type="file" accept="application/json" class="hidden"/>
-        <button id="btnReset" class="btn-danger">Reiniciar</button>
-        <button id="btnHelp" class="btn-primary">Guía</button>
+      <div class="pillrow">
+        <button class="btn secondary" id="themeBtn" title="Cambiar tema">🌗 Tema</button>
+        <button class="btn secondary" id="resetBtn" title="Borrar checks y registros del día actual">🧹 Reset día</button>
+        <button class="btn" id="exportBtn" title="Exportar tu registro a CSV">⬇️ Exportar CSV</button>
       </div>
+    </header>
+
+    <div class="row">
+      <section class="card">
+        <div class="hd">
+          <div class="split" style="width:100%">
+            <h2>Selecciona el día</h2>
+            <div class="tabs right" id="tabs"></div>
+          </div>
+          <div class="meta" id="dayMeta"></div>
+        </div>
+        <div class="bd">
+          <div class="grid2" style="margin-bottom:12px">
+            <div class="timerBox">
+              <div>
+                <div class="badge"><strong>Timer descanso</strong> (60–90 s recomendado)</div>
+                <div class="clock" id="clock">01:15</div>
+              </div>
+              <div class="stack">
+                <button class="btn secondary" id="t60">60s</button>
+                <button class="btn secondary" id="t75">75s</button>
+                <button class="btn secondary" id="t90">90s</button>
+                <button class="btn" id="startStop">▶︎ Iniciar</button>
+                <button class="btn secondary" id="resetTimer">↺ Reset</button>
+              </div>
+              <div class="hint">Tip: descansa 60–75s en accesorios (elevaciones, curls) y 75–90s en compuestos (press, row, squat).</div>
+            </div>
+            <div class="timerBox">
+              <div class="badge"><strong>Progresión</strong> (simple y efectiva)</div>
+              <div class="hint">
+                Si completas el rango alto de reps con buena técnica en todas las series, la próxima sesión sube:
+                <span class="ok"><b>+1 rep</b></span> o <span class="ok"><b>+1–2 kg</b></span> por mancuerna.
+                Mantén <b>1–2 RIR</b> (no al fallo) salvo la última serie de un accesorio.
+              </div>
+            </div>
+          </div>
+
+          <div style="overflow:auto; border-radius:14px; border:1px solid var(--border)">
+            <table id="workTable">
+              <thead>
+                <tr>
+                  <th style="min-width:260px">Ejercicio</th>
+                  <th>Series × Reps</th>
+                  <th>Desc.</th>
+                  <th style="min-width:200px">Registro (por mancuerna)</th>
+                  <th>Hecho</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="footer">
+            <div class="badge"><strong>Calentamiento (5–8 min)</strong> movilidad hombros/cadera + 2 series ligeras del primer ejercicio.</div>
+            <div class="badge"><strong>Enfriamiento (3–5 min)</strong> respiración + estiramiento suave (no agresivo).</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="hd">
+          <h2>Notas y control</h2>
+          <div class="meta">
+            <span class="k">✅ Marca ejercicios</span>
+            <span class="k">🧾 Guarda peso y reps</span>
+            <span class="k">💾 Se guarda solo</span>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="badge"><strong>Chequeo semanal (domingo, en ayunas)</strong></div>
+          <ul class="hint" style="margin-top:8px">
+            <li><b>Peso:</b> busca +0.3 a +0.6 kg/sem.</li>
+            <li><b>Cintura:</b> si sube muy rápido, baja el gainer o ajusta carbos.</li>
+            <li><b>Sueño:</b> prioridad #1 para crecer (sin cafeína ya ganaste).</li>
+          </ul>
+
+          <div class="badge" style="margin-top:10px"><strong>Notas del día</strong> (dolores, energía, cargas)</div>
+          <textarea class="note" id="notes" placeholder="Ej: Press inclinado 18kg x 10/10/9. Me sentí bien. Sin dolor hombro."></textarea>
+
+          <div class="badge" style="margin-top:10px"><strong>Hidratación (cálculos renales)</strong></div>
+          <div class="hint">
+            Objetivo diario: <b>2.5–3 L</b> de agua. Orina amarillo pálido. Evita exceso de sal/ultraprocesados.
+          </div>
+
+          <div class="badge" style="margin-top:10px"><strong>Tu stack recomendado</strong></div>
+          <div class="hint">
+            <b>Shroom Tech Sport</b>: 30–45 min pre-entreno (solo días de entreno).<br/>
+            <b>Alpha Brain</b>: por la mañana con desayuno (no de noche).<br/>
+            <b>Gainer</b>: post-entreno (160 g) + 300 g leche (+ agua si lo quieres menos espeso).
+          </div>
+
+          <div class="footer">
+            Si un ejercicio molesta (dolor articular), cámbialo por una variante similar. Dolor muscular normal = ok; dolor punzante/articular = <span class="bad"><b>para</b></span>.
+          </div>
+        </div>
+      </aside>
     </div>
   </div>
-</header>
-
-<main class="wrap">
-  <div class="grid cols-2">
-    <section class="card">
-      <div class="hd">
-        <div>
-          <h2>Panel general</h2>
-          <p>Todo se alimenta de movimientos reales por fecha (ingresos, gastos, pagos TDC, retiros, transferencias, bonos).</p>
-        </div>
-        <div class="badge"><i class="i-warn"></i><span id="statusText">Calculando…</span></div>
-      </div>
-      <div class="bd">
-        <div class="kpis" id="kpis"></div>
-        <div style="height:12px"></div>
-        <div class="split">
-          <div>
-            <div class="small muted" style="margin:0 0 8px;">Proyección deuda (usa pagos TDC reales; APR opcional)</div>
-            <canvas id="chart"></canvas>
-            <div class="hint">Registra pagos TDC como movimiento tipo “Pago TDC RD$” o “Pago TDC US$ (en RD$)”.</div>
-          </div>
-          <div>
-            <div class="small muted" style="margin:0 0 8px;">Alertas automáticas</div>
-            <div class="alerts" id="alerts"></div>
-            <div class="hint">Colchón objetivo por quincena: <b>RD$ 12,000</b> (editable).</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <aside class="card">
-      <div class="hd">
-        <div>
-          <h2>Parámetros</h2>
-          <p>TC, colchón, casa y horizonte.</p>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="row">
-          <div class="field">
-            <label>Tipo de cambio (RD$ por US$)</label>
-            <input id="fx" type="number" step="0.01" min="1"/>
-          </div>
-          <div class="field">
-            <label>Colchón por quincena (RD$)</label>
-            <input id="cushion" type="number" step="1" min="0"/>
-          </div>
-        </div>
-        <div style="height:10px"></div>
-        <div class="row">
-          <div class="field">
-            <label>Casa: día de pago</label>
-            <input id="houseDay" type="number" min="1" max="28" step="1"/>
-          </div>
-          <div class="field">
-            <label>Mora casa (%) si pagas tarde</label>
-            <input id="houseLatePct" type="number" min="0" max="25" step="0.1"/>
-          </div>
-        </div>
-        <div style="height:10px"></div>
-        <div class="row">
-          <div class="field">
-            <label>Mes inicial</label>
-            <input id="startMonth" type="month"/>
-          </div>
-          <div class="field">
-            <label>Horizonte (meses)</label>
-            <input id="horizon" type="number" min="3" max="36" step="1"/>
-          </div>
-        </div>
-        <div style="height:12px"></div>
-        <div class="row">
-          <button id="btnRecalc" class="btn-primary">Recalcular</button>
-          <button id="btnAddMonth" class="btn">+ Añadir 1 mes</button>
-        </div>
-        <div class="hint">Todo se guarda en tu navegador. Exporta JSON para respaldar.</div>
-      </div>
-    </aside>
-  </div>
-
-  <div style="height:14px"></div>
-
-  <section class="card">
-    <div class="tabs">
-      <div class="tab active" data-tab="tab1">Ingresos</div>
-      <div class="tab" data-tab="tab2">Gastos</div>
-      <div class="tab" data-tab="tab3">Deudas</div>
-      <div class="tab" data-tab="tab4">Registrar movimiento</div>
-      <div class="tab" data-tab="tab5">Reporte</div>
-      <div class="tab" data-tab="tab6">Calendario quincenal</div>
-    </div>
-
-    <!-- Ingresos -->
-    <div id="tab1" class="bd">
-      <div class="row">
-        <div class="field">
-          <label>Promedio quincena 15 (RD$)</label>
-          <input id="inc15" type="number" step="1" min="0"/>
-        </div>
-        <div class="field">
-          <label>Promedio quincena 30 (RD$)</label>
-          <input id="inc30" type="number" step="1" min="0"/>
-        </div>
-        <div class="field">
-          <label>Bono CCN (saldo mensual sugerido) (RD$)</label>
-          <input id="ccnMonthly" type="number" step="1" min="0"/>
-        </div>
-      </div>
-      <div class="hint">Los promedios se usan para el calendario. Los ingresos reales se registran como movimientos (por fecha) y se ven en Reporte.</div>
-      <div style="height:10px"></div>
-
-      <div class="row">
-        <div class="field">
-          <label>Saldo actual Bono CCN (RD$)</label>
-          <input id="balCCN" type="text" disabled/>
-        </div>
-        <div class="field">
-          <label>Saldo actual Bono Combustible (RD$)</label>
-          <input id="balFuel" type="text" disabled/>
-        </div>
-        <div class="field">
-          <label>Saldo Banco (RD$) (informativo)</label>
-          <input id="balBank" type="text" disabled/>
-        </div>
-        <div class="field">
-          <label>Saldo Efectivo (RD$) (informativo)</label>
-          <input id="balCash" type="text" disabled/>
-        </div>
-      </div>
-      <div class="hint">Los saldos se mueven según el método (Banco/Efectivo/Bonos). Gastos con TDC no afectan estos saldos.</div>
-    </div>
-
-    <!-- Gastos -->
-    <div id="tab2" class="bd hidden">
-      <div class="row">
-        <div class="field" style="min-width:220px; flex:0 0 220px;">
-          <label>Modo</label>
-          <select id="expenseMode">
-            <option value="base">Base (presupuesto)</option>
-            <option value="month">Real por mes</option>
-          </select>
-        </div>
-        <div class="field" style="min-width:200px; flex:0 0 200px;">
-          <label>Mes (solo modo Real por mes)</label>
-          <select id="expenseMonth"></select>
-        </div>
-        <div class="field" style="min-width:260px;">
-          <label>Acciones</label>
-          <div class="row" style="gap:8px;">
-            <button id="btnAddExpense" class="btn">+ Agregar gasto</button>
-            <button id="btnPauseStreaming" class="btn">Pausar entretenimiento</button>
-          </div>
-        </div>
-      </div>
-      <div class="hint">En “Real por mes” defines tu presupuesto real del mes (luz/gas/etc). El pago real se registra como movimiento para tener trazabilidad.</div>
-      <div style="height:10px"></div>
-      <table class="table" id="expenseTable"></table>
-    </div>
-
-    <!-- Deudas -->
-    <div id="tab3" class="bd hidden">
-      <div class="row">
-        <div class="field">
-          <label>Saldo inicial TDC RD$</label>
-          <input id="debtRD" type="number" step="0.01" min="0"/>
-        </div>
-        <div class="field">
-          <label>Saldo inicial TDC US$</label>
-          <input id="debtUS" type="number" step="0.01" min="0"/>
-        </div>
-      </div>
-
-      <div style="height:10px"></div>
-      <div class="row">
-        <div class="field">
-          <label>Saldo ACTUAL RD$ (calculado)</label>
-          <input id="curDebtRD" type="text" disabled/>
-        </div>
-        <div class="field">
-          <label>Saldo ACTUAL US$ (calculado)</label>
-          <input id="curDebtUS" type="text" disabled/>
-        </div>
-      </div>
-      <div class="hint">Saldo actual = saldo inicial − pagos TDC registrados como movimientos.</div>
-
-      <div style="height:10px"></div>
-      <div class="row">
-        <div class="field">
-          <label>APR RD$ (%) (opcional)</label>
-          <input id="aprRD" type="number" step="0.01" min="0" max="200"/>
-        </div>
-        <div class="field">
-          <label>APR US$ (%) (opcional)</label>
-          <input id="aprUS" type="number" step="0.01" min="0" max="200"/>
-        </div>
-      </div>
-
-      <div style="height:10px"></div>
-      <div class="row">
-        <button id="btnClearTdcPays" class="btn-danger">Borrar pagos TDC registrados</button>
-        <span class="muted small">No borra otros movimientos.</span>
-      </div>
-    </div>
-
-    <!-- Registrar movimiento -->
-    <div id="tab4" class="bd hidden">
-      <div class="twoCols">
-        <div class="card" style="box-shadow:none;">
-          <div class="hd">
-            <div>
-              <h2>Nuevo movimiento</h2>
-              <p>Registra: ingreso, gasto, pago TDC, retiro cajero, transferencia, bono y consumo de bono.</p>
-            </div>
-          </div>
-          <div class="bd">
-            <div class="row">
-              <div class="field" style="min-width:190px;">
-                <label>Fecha aplicada</label>
-                <input id="mvDate" type="date"/>
-              </div>
-              <div class="field" style="min-width:220px;">
-                <label>Tipo</label>
-                <select id="mvType">
-                  <option value="INCOME">Ingreso</option>
-                  <option value="EXPENSE">Gasto</option>
-                  <option value="TDC_PAY_RD">Pago TDC RD$</option>
-                  <option value="TDC_PAY_US_RD">Pago TDC US$ (en RD$)</option>
-                  <option value="WITHDRAWAL">Retiro en cajero (Banco → Efectivo)</option>
-                  <option value="TRANSFER">Transferencia (Banco ↔ Efectivo)</option>
-                  <option value="BONO_CCN_IN">Bono CCN recibido</option>
-                  <option value="BONO_CCN_OUT">Consumo Bono CCN</option>
-                  <option value="BONO_FUEL_IN">Bono Combustible recibido</option>
-                  <option value="BONO_FUEL_OUT">Consumo Bono Combustible</option>
-                </select>
-              </div>
-              <div class="field" style="min-width:160px;">
-                <label>Monto (RD$)</label>
-                <input id="mvAmount" type="number" step="1" min="0" value="0"/>
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="field" style="min-width:220px;">
-                <label>Categoría / Concepto</label>
-                <select id="mvCategory"></select>
-              </div>
-              <div class="field" style="min-width:210px;">
-                <label>Método / Medio</label>
-                <select id="mvMethod">
-                  <option value="BANCO">Transferencia/Banco</option>
-                  <option value="EFECTIVO">Efectivo</option>
-                  <option value="TDB">Tarjeta débito (TDB)</option>
-                  <option value="TDC">Tarjeta crédito (TDC)</option>
-                  <option value="BONO_CCN">Bono CCN</option>
-                  <option value="BONO_FUEL">Bono Combustible</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="field">
-                <label>Documento / Referencia (opcional)</label>
-                <input id="mvRef" placeholder="Ej: NCF, #transferencia, recibo, etc."/>
-              </div>
-              <div class="field">
-                <label>Nota (opcional)</label>
-                <input id="mvNote" placeholder="Ej: quincena 15, mercado, pago luz, etc."/>
-              </div>
-            </div>
-
-            <div class="row">
-              <button id="btnAddMv" class="btn-primary">Guardar movimiento</button>
-              <button id="btnClearMv" class="btn">Limpiar</button>
-            </div>
-            <div class="hint">
-              Reglas:
-              <b>Ingreso</b> aumenta Banco/Efectivo según método.
-              <b>Gasto</b descuenta Banco/Efectivo/Bonos según método (si es TDC, solo queda registrado).
-              <b>Pagos TDC</b> bajan la deuda.
-              <b>Bonos</b> se controlan como saldo independiente.
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="box-shadow:none;">
-          <div class="hd">
-            <div>
-              <h2>Últimos movimientos</h2>
-              <p>Elimina y vuelve a calcular al instante.</p>
-            </div>
-          </div>
-          <div class="bd">
-            <table class="table" id="recentMvTable"></table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reporte -->
-    <div id="tab5" class="bd hidden">
-      <div class="row">
-        <div class="field" style="min-width:220px; flex:0 0 220px;">
-          <label>Vista</label>
-          <select id="rpView">
-            <option value="month">Resumen por mes</option>
-            <option value="day">Detalle por día</option>
-          </select>
-        </div>
-        <div class="field" style="min-width:220px; flex:0 0 220px;">
-          <label>Mes</label>
-          <select id="rpMonth"></select>
-        </div>
-        <div class="field">
-          <label>Filtro rápido</label>
-          <div class="row" style="gap:8px;">
-            <div class="chip active" data-filter="ALL">Todos</div>
-            <div class="chip" data-filter="IN">Ingresos</div>
-            <div class="chip" data-filter="OUT">Gastos</div>
-            <div class="chip" data-filter="TDC">TDC</div>
-            <div class="chip" data-filter="BONO">Bonos</div>
-          </div>
-        </div>
-      </div>
-      <div style="height:10px"></div>
-      <table class="table" id="rpTable"></table>
-      <div class="hint">Exporta a CSV para Excel. Todo usa la fecha aplicada.</div>
-    </div>
-
-    <!-- Calendario -->
-    <div id="tab6" class="bd hidden">
-      <div class="row">
-        <button id="btnAutoPlan" class="btn-primary">Auto-plan (mantener colchón)</button>
-        <span class="muted small">Auto-plan sugiere pagos TDC mensuales (no crea movimientos reales).</span>
-      </div>
-      <div style="height:10px"></div>
-      <table class="table" id="calendarTable"></table>
-    </div>
-  </section>
-</main>
-
-<div id="modal" class="hidden" style="position:fixed; inset:0; background: rgba(0,0,0,.35); z-index:50; padding:18px;">
-  <div class="card" style="max-width:960px; margin: 28px auto;">
-    <div class="hd">
-      <div>
-        <h2>Guía rápida</h2>
-        <p>Cómo registrar ingresos/gastos/bonos y ver reportes.</p>
-      </div>
-      <button id="btnClose">Cerrar</button>
-    </div>
-    <div class="bd" style="line-height:1.55; color: var(--muted); font-size:13px;">
-      <ol>
-        <li><b>Presupuesto:</b> en “Gastos” define montos base o reales por mes.</li>
-        <li><b>Movimientos reales:</b> en “Registrar movimiento” registra todo por fecha aplicada.</li>
-        <li><b>Bonos:</b> usa “Bono recibido” para cargar saldo y “Consumo bono” para descargarlo.</li>
-        <li><b>Pagos TDC:</b> registra como “Pago TDC RD$” o “Pago TDC US$ (en RD$)” para que baje el saldo.</li>
-        <li><b>Reporte:</b> por mes o por día, con filtros por ingresos/gastos/bonos/TDC.</li>
-      </ol>
-      <p><b>Tip:</b> si pagas un gasto fijo (luz/casa) registra el movimiento como <b>Gasto</b> con categoría y método real. Así queda documentado.</p>
-    </div>
-  </div>
-</div>
 
 <script>
-(() => {
-  const LS_KEY = "finanzas_360_v1_3_0";
+/**
+ * Rutina por días + enlaces + tracker localStorage
+ * - No requiere internet salvo para abrir links de técnica
+ * - Exporta CSV con el registro (día, ejercicio, series/reps, peso, reps reales, notas)
+ */
 
-  // === Multi‑PC (Google Sheets) ===
-  const SHEETS_ENDPOINT = "https://script.google.com/macros/s/AKfycbwDJHTxizmB1dh6PswM2CRrvwfa2fBeHjSr36rIdn1bPzM-UdClf1uBvzLEoliw9RGFAw/exec";
-  const LS_LAST_SYNC = "fin360_last_sync_ms_v1";
-  const DEVICE_ID_KEY = "fin360_device_id_v1";
-
-  function getDeviceId(){
-    try {
-      const existing = localStorage.getItem(DEVICE_ID_KEY);
-      if(existing) return existing;
-      const id = (crypto?.randomUUID ? crypto.randomUUID() : ("dev_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
-      localStorage.setItem(DEVICE_ID_KEY, id);
-      return id;
-    } catch(e) {
-      return "dev_"+Date.now();
-    }
+const ROUTINE = [
+  {
+    key:"push",
+    name:"Día 1 — PUSH",
+    focus:"Pecho • Hombro • Tríceps",
+    target:"60–75 min",
+    exercises:[
+      ex("Press de pecho con mancuernas (en banco o piso)","4×8–10","75–90s","chest","dumbbells","dumbbell bench press"),
+      ex("Press inclinado con mancuernas (o piso con elevación)","3×10–12","75–90s","chest","dumbbells","incline dumbbell press"),
+      ex("Aperturas con mancuernas (fly)","3×12","60–75s","chest","dumbbells","dumbbell fly"),
+      ex("Press militar con mancuernas","3×8–10","75–90s","shoulders","dumbbells","dumbbell shoulder press"),
+      ex("Elevaciones laterales","3×12–15","60s","shoulders","dumbbells","dumbbell lateral raise"),
+      ex("Extensión de tríceps por encima de la cabeza","3×10–12","60–75s","triceps","dumbbells","overhead dumbbell triceps extension"),
+    ]
+  },
+  {
+    key:"pull",
+    name:"Día 2 — PULL",
+    focus:"Espalda • Bíceps",
+    target:"60–75 min",
+    exercises:[
+      ex("Remo a una mano con mancuerna","4×8–10 c/lado","75–90s","back","dumbbells","one arm dumbbell row"),
+      ex("Pullover con mancuerna","3×10–12","75s","back","dumbbells","dumbbell pullover"),
+      ex("Pájaros / Rear delt fly (deltoide posterior)","3×12–15","60–75s","shoulders","dumbbells","rear delt fly dumbbell"),
+      ex("Curl de bíceps con mancuernas","3×10–12","60–75s","biceps","dumbbells","dumbbell biceps curl"),
+      ex("Curl martillo (hammer curl)","3×10–12","60–75s","biceps","dumbbells","hammer curl dumbbell"),
+    ]
+  },
+  {
+    key:"legs",
+    name:"Día 3 — LEGS + CORE",
+    focus:"Piernas • Glúteos • Core",
+    target:"60–70 min",
+    exercises:[
+      ex("Sentadilla goblet","4×10–12","75–90s","quads","dumbbells","goblet squat"),
+      ex("Peso muerto rumano con mancuernas","4×8–10","75–90s","hamstrings","dumbbells","dumbbell romanian deadlift"),
+      ex("Zancadas (lunges)","3×10 c/pierna","75s","glutes","dumbbells","dumbbell lunge"),
+      ex("Elevación de pantorrillas de pie","4×15–20","60s","calves","dumbbells","standing calf raise dumbbell"),
+      ex("Plancha (plank)","3×30–45s","45–60s","abs","bodyweight","plank"),
+      ex("Crunch o elevación de piernas","3×12–15","45–60s","abs","bodyweight","leg raises"),
+    ]
+  },
+  {
+    key:"upper",
+    name:"Día 4 — FULL UPPER (calidad)",
+    focus:"Torso completo • Técnica • Bombeo",
+    target:"50–60 min",
+    exercises:[
+      ex("Press de pecho con mancuernas (moderado)","3×10","75s","chest","dumbbells","dumbbell bench press"),
+      ex("Remo a una mano (moderado)","3×10 c/lado","75s","back","dumbbells","one arm dumbbell row"),
+      ex("Press militar (moderado)","3×10","75s","shoulders","dumbbells","dumbbell shoulder press"),
+      ex("Superset: Curl + Extensión tríceps","3×12 cada uno","60s","arms","dumbbells","dumbbell curl superset triceps extension"),
+    ]
   }
+];
 
-  function setSyncBadge(kind, text){
-    const el = document.getElementById("syncBadge");
-    if(!el) return;
-    el.classList.remove("ok","sync","err");
-    if(kind) el.classList.add(kind);
-    el.textContent = text || "—";
-  }
-
-  function jsonp(url){
-    return new Promise((resolve, reject)=>{
-      const cb = "fin360_cb_" + Date.now() + "_" + Math.random().toString(16).slice(2);
-      const s = document.createElement("script");
-      const cleanup = ()=>{
-        try { delete window[cb]; } catch(_e) { window[cb] = undefined; }
-        if(s && s.parentNode) s.parentNode.removeChild(s);
-      };
-      const timer = setTimeout(()=>{ cleanup(); reject(new Error("Timeout JSONP")); }, 15000);
-      window[cb] = (data)=>{ clearTimeout(timer); cleanup(); resolve(data); };
-      s.onerror = ()=>{ clearTimeout(timer); cleanup(); reject(new Error("Error cargando JSONP")); };
-      const sep = url.includes("?") ? "&" : "?";
-      s.src = url + sep + "callback=" + encodeURIComponent(cb);
-      document.head.appendChild(s);
-    });
-  }
-
-  async function sheetsListSince(sinceMs){
-    const url = SHEETS_ENDPOINT + "?action=list&since=" + encodeURIComponent(sinceMs || 0);
-    // JSONP evita CORS (funciona en GitHub Pages y file://)
-    return await jsonp(url);
-  }
-
-  function ensureMovementId(mv){
-    if(!mv) return mv;
-    if(!mv.id) mv.id = (crypto?.randomUUID ? crypto.randomUUID() : ("mv_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
-    if(!mv.origen) mv.origen = "FIN360_" + getDeviceId();
-    return mv;
-  }
-
-  async function sheetsPost(mv){
-  // Envío por JSONP (GET) para evitar CORS incluso en GitHub Pages / file://
-  // Requiere Apps Script: doGet?action=append&payload=...&callback=...
-  const payload = Object.assign({}, mv);
-  payload.id = payload.id || (crypto?.randomUUID ? crypto.randomUUID() : ("mv_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
-  payload.origen = payload.origen || ("FIN360_" + getDeviceId());
-  const url = SHEETS_ENDPOINT + "?action=append&payload=" + encodeURIComponent(JSON.stringify(payload));
-  try{
-    const res = await jsonp(url);
-    return !!(res && res.status === "OK");
-  }catch(e){
-    return false;
-  }
+function ex(name, setsReps, rest, muscle, equipment, query){
+  return { name, setsReps, rest, muscle, equipment, query };
 }
 
-  function getLastSyncMs(){
-    const v = Number(localStorage.getItem(LS_LAST_SYNC) || 0) || 0;
-    return v;
+const $ = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
+const LS_KEY = "jj_rutina_mancuernas_v1";
+const todayKey = ()=> new Date().toISOString().slice(0,10); // YYYY-MM-DD
+const state = loadState();
+
+let currentDay = ROUTINE[0].key;
+renderTabs();
+setDay(currentDay);
+wireTimer();
+wireTopActions();
+wireNotes();
+
+function renderTabs(){
+  const tabs = $("#tabs");
+  tabs.innerHTML = "";
+  for(const d of ROUTINE){
+    const b = document.createElement("button");
+    b.className = "tab";
+    b.textContent = d.name;
+    b.onclick = ()=> setDay(d.key);
+    b.dataset.key = d.key;
+    tabs.appendChild(b);
   }
-  function setLastSyncMs(ms){
-    localStorage.setItem(LS_LAST_SYNC, String(ms||0));
-  }
+}
+function setDay(key){
+  currentDay = key;
+  $$("#tabs .tab").forEach(t=>t.classList.toggle("active", t.dataset.key===key));
+  const day = ROUTINE.find(d=>d.key===key);
+  $("#dayMeta").innerHTML = `
+    <span class="k">Enfoque: <b>${day.focus}</b></span>
+    <span class="k">Duración: <b>${day.target}</b></span>
+    <span class="k">Objetivo: <b>1–2 RIR</b> (sin fallo)</span>
+  `;
+  renderTable(day);
+  $("#notes").value = (state.notes?.[todayKey()]?.[currentDay]) || "";
+}
 
-  async function syncFromSheets(){
-    setSyncBadge("sync","Sync…");
-    try {
-      const since = getLastSyncMs();
-      const res = await sheetsListSince(since);
-      if(!res || res.status !== "OK") {
-        setSyncBadge("err","Sin sync");
-        return;
-      }
+function mkMuscleWikiUrl(muscle, equipment){
+  // MuscleWiki usa paths /es-es/exercises/<muscle>/<equipment>
+  const m = encodeURIComponent(muscle);
+  const e = encodeURIComponent(equipment);
+  return `https://musclewiki.com/es-es/exercises/${m}/${e}`;
+}
+function mkYouTubeSearchUrl(q){
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
 
-      const items = Array.isArray(res.items) ? res.items : [];
-      let imported = 0;
+function renderTable(day){
+  const tbody = $("#tbody");
+  tbody.innerHTML = "";
+  const dayState = getDayState();
 
-      // build index by id for existing
-      const byId = new Map((state.movimientos||[]).filter(x=>x && x.id).map(x=>[x.id, x]));
+  day.exercises.forEach((x, idx)=>{
+    const id = `${todayKey()}::${currentDay}::${idx}`;
+    const saved = dayState.rows?.[idx] || {};
+    const tr = document.createElement("tr");
 
-      for(const it of items){
-        if(!it) continue;
-        const id = it.id ? String(it.id) : "";
-        if(!id) continue;
+    const muscleWiki = mkMuscleWikiUrl(x.muscle, x.equipment);
+    const yt = mkYouTubeSearchUrl(`${x.query} técnica correcta español mancuernas`);
+    const form = `
+      <div class="exname">${x.name}</div>
+      <div class="links">
+        <a class="link" href="${muscleWiki}" target="_blank" rel="noopener">📚 MuscleWiki</a>
+        <a class="link" href="${yt}" target="_blank" rel="noopener">▶︎ YouTube (buscar)</a>
+      </div>
+      <div class="hint">Tip: movimiento controlado (2s bajar / 1s subir). Si duele articulación, reduce rango o cambia variante.</div>
+    `;
 
-        if(!byId.has(id)) {
-          // normalize incoming movement to local schema
-          const mv = {
-            id,
-            fecha: it.fecha || "",
-            tipo: it.tipo || "",
-            categoria: it.categoria || "",
-            subcategoria: it.subcategoria || "",
-            metodo_pago: it.metodo_pago || "",
-            monto: Number(it.monto)||0,
-            moneda: it.moneda || "DOP",
-            cuenta_origen: it.cuenta_origen || "",
-            cuenta_destino: it.cuenta_destino || "",
-            detalle: it.detalle || "",
-            origen: it.origen || "",
-            timestamp: it.timestamp || ""
-          };
-          state.movimientos.push(mv);
-          byId.set(id, mv);
-          imported++;
-        }
-      }
-
-      if(res.maxTs) setLastSyncMs(Number(res.maxTs)||Date.now());
-      save();
-
-      // refrescar UI principal
-      try { recalcAll(); buildReport(); } catch(_e) {}
-
-      setSyncBadge("ok", imported ? ("Sync +" + imported) : "Sync OK");
-    } catch(e) {
-      setSyncBadge("err","Sin sync");
-    }
-  }
-
-
-  const fmtRD = new Intl.NumberFormat("es-DO", { style:"currency", currency:"DOP", maximumFractionDigits:0 });
-  const fmtUS = new Intl.NumberFormat("en-US", { style:"currency", currency:"USD", maximumFractionDigits:2 });
-  const $ = (id) => document.getElementById(id);
-
-  function deepMerge(base, patch){
-    if(typeof base !== "object" || base === null) return patch;
-    const out = Array.isArray(base) ? [...base] : {...base};
-    for(const k in patch){
-      if(patch[k] && typeof patch[k] === "object" && !Array.isArray(patch[k])){
-        out[k] = deepMerge(base[k] || {}, patch[k]);
-      }else{
-        out[k] = patch[k];
-      }
-    }
-    return out;
-  }
-
-  const defaults = () => ({
-    fx: 66,
-    cushion: 12000,
-    houseDay: 15,
-    houseLatePct: 5,
-    startMonth: new Date().toISOString().slice(0,7),
-    horizon: 10,
-    inc15: 63000,
-    inc30: 46000,
-    ccnMonthly: 20000,
-
-    // Presupuesto de gastos
-    expenses: [
-      {id:"casa", name:"Pago de casa", amount:10000, note:"Pagar el día 15", tag:"Casa"},
-      {id:"luz", name:"Pago de luz", amount:2500, note:"", tag:"Servicios"},
-      {id:"gas", name:"Pago de gas", amount:500, note:"", tag:"Servicios"},
-      {id:"internet", name:"Internet", amount:2000, note:"", tag:"Servicios"},
-      {id:"telefono", name:"Teléfono", amount:2000, note:"", tag:"Servicios"},
-      {id:"office", name:"Office (obligatorio)", amount:2244, note:"Mantener", tag:"Trabajo"},
-      {id:"chatgpt", name:"ChatGPT (obligatorio)", amount:1320, note:"Mantener", tag:"Trabajo"},
-      {id:"odoo", name:"Odoo", amount:1122, note:"", tag:"Trabajo"},
-      {id:"envio", name:"Envío a Venezuela", amount:5000, note:"", tag:"Familia"},
-      {id:"otros", name:"Otros gastos", amount:5000, note:"Incluye exceso combustible", tag:"Varios"},
-      {id:"netflix", name:"Netflix (pausado)", amount:0, note:"Opcional", tag:"Entretenimiento"},
-      {id:"disney", name:"Disney (pausado)", amount:0, note:"Opcional", tag:"Entretenimiento"},
-      {id:"spotify", name:"Spotify (pausado)", amount:0, note:"Opcional", tag:"Entretenimiento"},
-      {id:"paramount", name:"Paramount (pausado)", amount:0, note:"Opcional", tag:"Entretenimiento"},
-      {id:"canva", name:"Canva (pausado)", amount:0, note:"Opcional", tag:"Trabajo"},
-    ],
-    expensesByMonth: [], // {month, items:{expenseId:amount}}
-
-    // Deudas
-    debts: { rd: 0, us: 0, aprRD: 0, aprUS: 0 },
-
-    // Saldos informativos (se calculan de movimientos)
-    balances: { bank: 0, cash: 0, ccn: 0, fuel: 0 },
-
-    // Movimientos reales (ledger)
-    movements: [
-      // {id, date:"YYYY-MM-DD", type, categoryId, categoryName, method, amountRD, ref, note}
-    ],
-
-    // Pagos TDC planificados por mes (solo para calendario si no hay pagos reales)
-    tdcPlanByMonth: [] // {month, payRD, payUS_RD, note}
+    tr.innerHTML = `
+      <td>${form}</td>
+      <td><span class="badge"><strong>${x.setsReps}</strong></span></td>
+      <td><span class="badge">${x.rest}</span></td>
+      <td>
+        <div class="stack">
+          <label class="badge">Peso (kg)
+            <input class="in small" inputmode="decimal" placeholder="0" value="${esc(saved.weight||"")}" data-field="weight" data-idx="${idx}">
+          </label>
+          <label class="badge">Reps reales
+            <input class="in small" inputmode="numeric" placeholder="0" value="${esc(saved.reps||"")}" data-field="reps" data-idx="${idx}">
+          </label>
+          <label class="badge">Notas
+            <input class="in long" placeholder="ej: 10/10/9" value="${esc(saved.note||"")}" data-field="note" data-idx="${idx}">
+          </label>
+        </div>
+      </td>
+      <td>
+        <label class="chk">
+          <input type="checkbox" ${saved.done ? "checked":""} data-field="done" data-idx="${idx}">
+          Hecho
+        </label>
+      </td>
+    `;
+    tbody.appendChild(tr);
   });
 
-  let state = load();
-  function load(){
-    try{
-      const raw = localStorage.getItem(LS_KEY);
-      if(!raw) return defaults();
-      return deepMerge(defaults(), JSON.parse(raw));
-    }catch(e){ return defaults(); }
-  }
-  function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  tbody.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("input", ()=>{
+      const idx = Number(inp.dataset.idx);
+      const field = inp.dataset.field;
+      const v = (field==="done") ? inp.checked : inp.value;
+      updateRow(idx, field, v);
+    });
+    inp.addEventListener("change", ()=>{
+      const idx = Number(inp.dataset.idx);
+      const field = inp.dataset.field;
+      const v = (field==="done") ? inp.checked : inp.value;
+      updateRow(idx, field, v);
+    });
+  });
 
-  function monthsList(startMonth, count){
-    const [y,m] = startMonth.split("-").map(Number);
-    const out = [];
-    for(let i=0;i<count;i++){
-      const d = new Date(y, m-1+i, 1);
-      out.push(d.toISOString().slice(0,7));
+  tbody.querySelectorAll("input[type=checkbox]").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const idx = Number(chk.dataset.idx);
+      updateRow(idx, "done", chk.checked);
+    });
+  });
+}
+
+function esc(s){
+  return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+}
+
+function loadState(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }catch{ return {}; }
+}
+function saveState(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+function getDayState(){
+  const d = todayKey();
+  state.days ??= {};
+  state.days[d] ??= {};
+  state.days[d][currentDay] ??= { rows:{} };
+  return state.days[d][currentDay];
+}
+function updateRow(idx, field, value){
+  const ds = getDayState();
+  ds.rows ??= {};
+  ds.rows[idx] ??= {};
+  ds.rows[idx][field] = value;
+  saveState();
+}
+
+function wireNotes(){
+  $("#notes").addEventListener("input", (e)=>{
+    const d = todayKey();
+    state.notes ??= {};
+    state.notes[d] ??= {};
+    state.notes[d][currentDay] = e.target.value;
+    saveState();
+  });
+}
+
+function wireTopActions(){
+  // theme
+  const themeBtn = $("#themeBtn");
+  const applyTheme = (t)=>{
+    document.documentElement.setAttribute("data-theme", t);
+    state.theme = t;
+    saveState();
+  };
+  applyTheme(state.theme || "dark");
+  themeBtn.onclick = ()=>{
+    const cur = document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(cur==="dark" ? "light" : "dark");
+  };
+
+  // reset day
+  $("#resetBtn").onclick = ()=>{
+    const d = todayKey();
+    if(state.days?.[d]?.[currentDay]){
+      delete state.days[d][currentDay];
     }
-    return out;
-  }
-
-  function escapeHtml(s){
-    return String(s ?? "").replace(/[&<>"']/g, (m)=>({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-    }[m]));
-  }
-
-  // --- Presupuesto (Gastos) ---
-  function getExpenseMonthRec(month){
-    let rec = state.expensesByMonth.find(x => x.month === month);
-    if(!rec){ rec = {month, items:{}}; state.expensesByMonth.push(rec); }
-    return rec;
-  }
-  function getExpenseAmountForMonth(exp, month, mode){
-    if(mode==="month"){
-      const rec = state.expensesByMonth.find(x => x.month === month);
-      const v = rec?.items?.[exp.id];
-      if(v === 0) return 0;
-      if(v === undefined || v === null) return Number(exp.amount)||0;
-      return Number(v)||0;
+    if(state.notes?.[d]?.[currentDay]){
+      delete state.notes[d][currentDay];
     }
-    return Number(exp.amount)||0;
-  }
-  function setExpenseForMonth(expId, month, amount){
-    const rec = getExpenseMonthRec(month);
-    rec.items[expId] = Number(amount)||0;
-    save(); recalcAll();
-  }
-  function sumExpensesForMonth(month){
-    const mode = $("expenseMode")?.value || "base";
-    const m = mode==="month" ? "month" : "base";
-    return state.expenses.reduce((a,exp)=> a + getExpenseAmountForMonth(exp, month, m), 0);
-  }
-  function sumExpensesBase(){ return state.expenses.reduce((a,x)=> a + (Number(x.amount)||0), 0); }
+    saveState();
+    setDay(currentDay);
+  };
 
-  // --- Movimientos ---
-  function mvMonth(dateStr){ return (dateStr||"").slice(0,7); }
-  function addMovement(entry){
-    state.movements.push(entry);
-    state.movements.sort((a,b)=> (a.date||"").localeCompare(b.date||"") || (a.id||"").localeCompare(b.id||""));
-    save(); recalcAll();
-  }
-  function deleteMovement(id){
-    state.movements = state.movements.filter(x=>x.id !== id);
-    save(); recalcAll();
-  }
+  // export CSV
+  $("#exportBtn").onclick = exportCSV;
+}
 
-  function methodLabel(m){
-    return ({
-      "BANCO":"Banco/Transferencia",
-      "EFECTIVO":"Efectivo",
-      "TDB":"Tarjeta Débito (TDB)",
-      "TDC":"Tarjeta Crédito (TDC)",
-      "BONO_CCN":"Bono CCN",
-      "BONO_FUEL":"Bono Combustible"
-    }[m] || m);
-  }
-  function typeLabel(t){
-    return ({
-      "INCOME":"Ingreso",
-      "EXPENSE":"Gasto",
-      "TDC_PAY_RD":"Pago TDC RD$",
-      "TDC_PAY_US_RD":"Pago TDC US$ (en RD$)",
-      "WITHDRAWAL":"Retiro en cajero",
-      "TRANSFER":"Transferencia",
-      "BONO_CCN_IN":"Bono CCN recibido",
-      "BONO_CCN_OUT":"Consumo Bono CCN",
-      "BONO_FUEL_IN":"Bono Combustible recibido",
-      "BONO_FUEL_OUT":"Consumo Bono Combustible"
-    }[t] || t);
-  }
-
-  function computeBalancesFromMovements(){
-    // Calcula saldos informativos a partir de movimientos (sin asumir saldo inicial externo)
-    let bank = 0, cash = 0, ccn = 0, fuel = 0;
-
-    for(const mv of state.movements){
-      const a = Number(mv.amountRD)||0;
-      const method = mv.method;
-
-      switch(mv.type){
-        case "INCOME":
-          if(method==="BANCO") bank += a;
-          else if(method==="EFECTIVO") cash += a;
-          else if(method==="BONO_CCN") ccn += a;
-          else if(method==="BONO_FUEL") fuel += a;
-          else bank += a; // fallback
-          break;
-
-        case "EXPENSE":
-          if(method==="BANCO" || method==="TDB") bank -= a;
-          else if(method==="EFECTIVO") cash -= a;
-          else if(method==="BONO_CCN") ccn -= a;
-          else if(method==="BONO_FUEL") fuel -= a;
-          else if(method==="TDC") { /* no afecta saldos */ }
-          break;
-
-        case "WITHDRAWAL":
-          // Banco → Efectivo
-          bank -= a; cash += a;
-          break;
-
-        case "TRANSFER":
-          // por defecto Banco → Efectivo (si usuario eligió método efectivo: Efectivo → Banco)
-          if(method==="EFECTIVO"){ cash -= a; bank += a; }
-          else { bank -= a; cash += a; }
-          break;
-
-        case "BONO_CCN_IN":
-          ccn += a; break;
-        case "BONO_CCN_OUT":
-          ccn -= a; break;
-        case "BONO_FUEL_IN":
-          fuel += a; break;
-        case "BONO_FUEL_OUT":
-          fuel -= a; break;
-
-        case "TDC_PAY_RD":
-        case "TDC_PAY_US_RD":
-          // pagos a TDC normalmente salen de banco/efectivo; usamos método para reflejar salida
-          if(method==="BANCO" || method==="TDB") bank -= a;
-          else if(method==="EFECTIVO") cash -= a;
-          break;
-      }
-    }
-
-    state.balances = { bank, cash, ccn, fuel };
-  }
-
-  // --- Deuda TDC calculada por pagos reales ---
-  function getTdcPaidTotals(){
-    const fx = Number(state.fx)||66;
-    const paidRD = state.movements.filter(m=>m.type==="TDC_PAY_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-    const paidUS = state.movements.filter(m=>m.type==="TDC_PAY_US_RD").reduce((a,m)=>a+((Number(m.amountRD)||0)/fx),0);
-    return { paidRD, paidUS, paidUS_RD: paidUS*fx };
-  }
-  function getCurrentDebtBalances(){
-    const t = getTdcPaidTotals();
-    const initRD = Number(state.debts.rd)||0;
-    const initUS = Number(state.debts.us)||0;
-    const curRD = Math.max(0, initRD - t.paidRD);
-    const curUS = Math.max(0, initUS - t.paidUS);
-    return { initRD, initUS, curRD, curUS, paidRD:t.paidRD, paidUS:t.paidUS, paidUS_RD:t.paidUS_RD };
-  }
-
-  // --- Plan mensual para calendario (si no hay pagos reales en el mes) ---
-  function getPlan(month){
-    const r = state.tdcPlanByMonth.find(x=>x.month===month);
-    return { payRD: r?.payRD??0, payUS_RD: r?.payUS_RD??0, note:r?.note??"" };
-  }
-  function setPlan(month, patch){
-    const i = state.tdcPlanByMonth.findIndex(x=>x.month===month);
-    if(i===-1) state.tdcPlanByMonth.push({month, payRD:0, payUS_RD:0, note:"", ...patch});
-    else state.tdcPlanByMonth[i] = {...state.tdcPlanByMonth[i], ...patch};
-    save(); recalcAll();
-  }
-
-  function realTdcPaymentsForMonth(month){
-    const fx = Number(state.fx)||66;
-    const tdcRD = state.movements.filter(m=>mvMonth(m.date)===month && m.type==="TDC_PAY_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-    const tdcUS_RD = state.movements.filter(m=>mvMonth(m.date)===month && m.type==="TDC_PAY_US_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-    return {tdcRD, tdcUS_RD, tdcUS: tdcUS_RD/fx, total: tdcRD+tdcUS_RD};
-  }
-
-  function effectiveTdcPaymentsForMonth(month){
-    const r = realTdcPaymentsForMonth(month);
-    if(r.total>0) return {payRD:r.tdcRD, payUS_RD:r.tdcUS_RD, source:"real"};
-    const p = getPlan(month);
-    return {payRD:Number(p.payRD)||0, payUS_RD:Number(p.payUS_RD)||0, source:"plan"};
-  }
-
-  // --- Proyección deuda ---
-  function calcProjection(){
-    const months = monthsList(state.startMonth, Number(state.horizon)||10);
-    const cb = getCurrentDebtBalances();
-    let balRD = cb.curRD;
-    let balUS = cb.curUS;
-    const aprRDm = (Number(state.debts.aprRD)||0)/100/12;
-    const aprUSm = (Number(state.debts.aprUS)||0)/100/12;
-    const fx = Number(state.fx)||66;
-    const series = [];
-    for(const month of months){
-      if(aprRDm>0) balRD *= (1+aprRDm);
-      if(aprUSm>0) balUS *= (1+aprUSm);
-      const eff = effectiveTdcPaymentsForMonth(month);
-      balRD = Math.max(0, balRD - Math.max(0, Number(eff.payRD)||0));
-      balUS = Math.max(0, balUS - Math.max(0, (Number(eff.payUS_RD)||0)/fx));
-      series.push({month, balRD, balUS, totalRD: balRD + balUS*fx, source: eff.source});
-    }
-    return series;
-  }
-
-  // --- Calendar auto-plan ---
-  function autoPlan(){
-    const months = monthsList(state.startMonth, Number(state.horizon)||10);
-    const cushionMonthly = (Number(state.cushion)||0) * 2;
-    months.forEach(month=>{
-      const incomeMonthly = (Number(state.inc15)||0) + (Number(state.inc30)||0);
-      const fixed = sumExpensesForMonth(month);
-      let avail = incomeMonthly - fixed - cushionMonthly;
-      avail = Math.max(0, isFinite(avail)?avail:0);
-      const payUS_RD = Math.round(avail * 0.55);
-      const payRD = Math.round(avail * 0.45);
-      setPlan(month, {payRD, payUS_RD, note:"Auto-plan"});
+function exportCSV(){
+  const d = todayKey();
+  const rows = [];
+  rows.push(["fecha","dia","ejercicio","series_reps","descanso","peso_kg","reps_reales","nota","hecho","notas_del_dia"].join(","));
+  for(const day of ROUTINE){
+    const dayKey = day.key;
+    const ds = state.days?.[d]?.[dayKey];
+    const dayNote = state.notes?.[d]?.[dayKey] || "";
+    if(!ds) continue;
+    day.exercises.forEach((x, idx)=>{
+      const r = ds.rows?.[idx] || {};
+      rows.push([
+        q(d),
+        q(day.name),
+        q(x.name),
+        q(x.setsReps),
+        q(x.rest),
+        q(r.weight||""),
+        q(r.reps||""),
+        q(r.note||""),
+        q(r.done ? "1":"0"),
+        q(dayNote)
+      ].join(","));
     });
   }
+  const blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rutina_mancuernas_${d}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 300);
+}
+function q(v){
+  const s = String(v ?? "");
+  // escape quotes
+  return `"${s.replaceAll('"','""')}"`;
+}
 
-  // --- UI: Presupuesto de gastos ---
-  function buildExpenseMonthOptions(){
-    const months = monthsList(state.startMonth, Number(state.horizon)||10);
-    $("expenseMonth").innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join("");
-    if(!months.includes($("expenseMonth").value)) $("expenseMonth").value = months[0];
-    $("rpMonth").innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join("");
-    if(!months.includes($("rpMonth").value)) $("rpMonth").value = months[0];
+// Timer
+let timer = { total:75, left:75, running:false, t:null };
+function wireTimer(){
+  $("#t60").onclick=()=>setTimer(60);
+  $("#t75").onclick=()=>setTimer(75);
+  $("#t90").onclick=()=>setTimer(90);
+  $("#resetTimer").onclick=()=>{ timer.left = timer.total; paintClock(); };
+  $("#startStop").onclick=toggleTimer;
+  setTimer(75);
+}
+function setTimer(sec){
+  timer.total = sec;
+  timer.left = sec;
+  paintClock();
+}
+function paintClock(){
+  const mm = String(Math.floor(timer.left/60)).padStart(2,"0");
+  const ss = String(timer.left%60).padStart(2,"0");
+  $("#clock").textContent = `${mm}:${ss}`;
+}
+function toggleTimer(){
+  if(timer.running){
+    timer.running=false;
+    clearInterval(timer.t);
+    $("#startStop").textContent = "▶︎ Iniciar";
+    return;
   }
-
-  function buildExpenseTable(){
-    const mode = $("expenseMode").value; // base | month
-    const month = $("expenseMonth").value || state.startMonth;
-
-    const rows = state.expenses.map((x, idx)=>{
-      const amt = getExpenseAmountForMonth(x, month, mode==="month" ? "month" : "base");
-      return `
-      <tr>
-        <td><input data-exp-name="${idx}" value="${escapeHtml(x.name)}" style="width:100%"/></td>
-        <td class="right"><input data-exp-amt="${idx}" type="number" step="1" min="0" value="${amt}" style="width:120px"/></td>
-        <td><input data-exp-tag="${idx}" value="${escapeHtml(x.tag||"")}" style="width:120px"/></td>
-        <td><input data-exp-note="${idx}" value="${escapeHtml(x.note||"")}" style="width:100%"/></td>
-        <td class="right">${mode==="base" ? `<button data-exp-del="${idx}" class="btn-danger" style="padding:8px 10px">Eliminar</button>` : `<span class="muted">—</span>`}</td>
-      </tr>`;
-    }).join("");
-
-    const total = mode==="month" ? sumExpensesForMonth(month) : sumExpensesBase();
-
-    $("expenseTable").innerHTML = `
-      <thead><tr>
-        <th>Concepto</th><th class="right">${mode==="month" ? "Monto REAL del mes (presupuesto)" : "Monto mensual (base)"}</th><th>Grupo</th><th>Nota</th><th class="right">Acción</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr>
-        <td colspan="5" class="right"><span class="muted">Total ${mode==="month" ? "del mes "+month : "base"}: </span><b>${fmtRD.format(total)}</b></td>
-      </tr></tfoot>
-    `;
-
-    const bind = (sel, fn)=> document.querySelectorAll(sel).forEach(el=> el.addEventListener("input", fn));
-    bind("input[data-exp-name]", (e)=>{
-      const i = Number(e.target.getAttribute("data-exp-name"));
-      state.expenses[i].name = e.target.value; save(); recalcAll(); buildCategoryOptions();
-    });
-    bind("input[data-exp-tag]", (e)=>{
-      const i = Number(e.target.getAttribute("data-exp-tag"));
-      state.expenses[i].tag = e.target.value; save(); recalcAll();
-    });
-    bind("input[data-exp-note]", (e)=>{
-      const i = Number(e.target.getAttribute("data-exp-note"));
-      state.expenses[i].note = e.target.value; save(); recalcAll();
-    });
-
-    document.querySelectorAll("input[data-exp-amt]").forEach(inp=>{
-      inp.addEventListener("input", (e)=>{
-        const idx = Number(e.target.getAttribute("data-exp-amt"));
-        const expId = state.expenses[idx].id;
-        const v = Number(e.target.value)||0;
-        if(mode==="month") setExpenseForMonth(expId, month, v);
-        else { state.expenses[idx].amount = v; save(); recalcAll(); }
-        buildExpenseTable();
-      });
-    });
-
-    if(mode==="base"){
-      document.querySelectorAll("button[data-exp-del]").forEach(btn=>{
-        btn.addEventListener("click", (e)=>{
-          const i = Number(e.target.getAttribute("data-exp-del"));
-          state.expenses.splice(i,1);
-          save(); recalcAll();
-          buildExpenseTable(); buildCategoryOptions();
-        });
-      });
-    }
-  }
-
-  // --- UI: categorías para movimientos ---
-  function buildCategoryOptions(){
-    const optsFixed = state.expenses.map(e=> `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join("");
-    const extra = `
-      <optgroup label="Ingresos">
-        <option value="salary">Salario / Nómina</option>
-        <option value="bonus_cash">Bono en efectivo</option>
-        <option value="other_income">Otros ingresos</option>
-      </optgroup>
-      <optgroup label="Gastos generales">
-        <option value="market">Mercado / Super</option>
-        <option value="transport">Transporte</option>
-        <option value="salud">Salud</option>
-        <option value="educacion">Educación</option>
-        <option value="comida">Comida</option>
-        <option value="otros">Otros</option>
-      </optgroup>
-      <optgroup label="Movimientos bancarios">
-        <option value="withdrawal">Retiro cajero</option>
-        <option value="transfer">Transferencia</option>
-      </optgroup>
-      <optgroup label="TDC">
-        <option value="tdc_pay">Pago TDC</option>
-        <option value="tdc_purchase">Compra con TDC (registro)</option>
-      </optgroup>
-      <optgroup label="Bonos">
-        <option value="ccn">Bono CCN</option>
-        <option value="fuel">Bono Combustible</option>
-      </optgroup>
-    `;
-    $("mvCategory").innerHTML = `<optgroup label="Gastos fijos (presupuesto)">${optsFixed}</optgroup>${extra}`;
-  }
-
-  // --- UI: últimos movimientos ---
-  function buildRecentMovements(){
-    const fx = Number(state.fx)||66;
-    const last = [...state.movements].sort((a,b)=> (b.date||"").localeCompare(a.date||"")).slice(0,12);
-    const rows = last.map(m=>{
-      const usd = m.type==="TDC_PAY_US_RD" ? ` <span class="muted">(${fmtUS.format((Number(m.amountRD)||0)/fx)})</span>` : "";
-      return `
-        <tr>
-          <td><b>${m.date}</b><div class="muted small">${mvMonth(m.date)}</div></td>
-          <td>${typeLabel(m.type)}<div class="muted small">${escapeHtml(m.categoryName||"")}</div></td>
-          <td>${methodLabel(m.method)}<div class="muted small">${escapeHtml(m.ref||"")}</div></td>
-          <td class="right"><b>${fmtRD.format(Number(m.amountRD)||0)}</b>${usd}</td>
-          <td>${escapeHtml(m.note||"")}</td>
-          <td class="right"><button class="btn-danger" data-del="${m.id}" style="padding:8px 10px">Eliminar</button></td>
-        </tr>`;
-    }).join("");
-
-    $("recentMvTable").innerHTML = `
-      <thead><tr>
-        <th>Fecha</th><th>Tipo / Concepto</th><th>Método / Ref</th><th class="right">Monto</th><th>Nota</th><th class="right">Acción</th>
-      </tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">Aún no hay movimientos registrados.</td></tr>`}</tbody>
-    `;
-
-    document.querySelectorAll("button[data-del]").forEach(b=>{
-      b.addEventListener("click", (e)=>{
-        const id = e.target.getAttribute("data-del");
-        if(!confirm("¿Eliminar este movimiento?")) return;
-        deleteMovement(id);
-      });
-    });
-  }
-
-  // --- UI: reporte ---
-  let reportFilter = "ALL";
-  function bucketFor(mv){
-    if(mv.type==="INCOME") return "IN";
-    if(mv.type==="EXPENSE") return "OUT";
-    if(mv.type==="TDC_PAY_RD" || mv.type==="TDC_PAY_US_RD") return "TDC";
-    if(mv.type.startsWith("BONO_")) return "BONO";
-    return "ALL";
-  }
-
-  function setChipActive(val){
-    reportFilter = val;
-    document.querySelectorAll(".chip").forEach(c=> c.classList.toggle("active", c.getAttribute("data-filter")===val));
-    buildReport();
-  }
-
-  function buildReport(){
-    const view = $("rpView").value;
-    const month = $("rpMonth").value;
-    const fx = Number(state.fx)||66;
-
-    const items = state.movements
-      .filter(m => mvMonth(m.date) === month)
-      .filter(m => reportFilter==="ALL" ? true : (bucketFor(m)===reportFilter))
-      .slice()
-      .sort((a,b)=> (a.date||"").localeCompare(b.date||""));
-
-    if(view==="month"){
-      const income = items.filter(m=>m.type==="INCOME").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const expense = items.filter(m=>m.type==="EXPENSE").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const tdcRD = items.filter(m=>m.type==="TDC_PAY_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const tdcUS_RD = items.filter(m=>m.type==="TDC_PAY_US_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const bonoIn = items.filter(m=>m.type==="BONO_CCN_IN"||m.type==="BONO_FUEL_IN").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const bonoOut = items.filter(m=>m.type==="BONO_CCN_OUT"||m.type==="BONO_FUEL_OUT").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const withdraw = items.filter(m=>m.type==="WITHDRAWAL").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-
-      $("rpTable").innerHTML = `
-        <thead><tr>
-          <th>Concepto</th><th class="right">Monto RD$</th><th class="right">Equiv. US$</th><th>Nota</th>
-        </tr></thead>
-        <tbody>
-          <tr><td><b>Ingresos</b></td><td class="right"><b>${fmtRD.format(income)}</b></td><td class="right">—</td><td class="muted">Movimientos tipo Ingreso</td></tr>
-          <tr><td><b>Gastos (pagados)</b></td><td class="right"><b>${fmtRD.format(expense)}</b></td><td class="right">—</td><td class="muted">Movimientos tipo Gasto</td></tr>
-          <tr><td><b>Pagos TDC RD$</b></td><td class="right"><b>${fmtRD.format(tdcRD)}</b></td><td class="right">—</td><td class="muted">Aplicados en ${month}</td></tr>
-          <tr><td><b>Pagos TDC US$ (en RD$)</b></td><td class="right"><b>${fmtRD.format(tdcUS_RD)}</b></td><td class="right"><b>${fmtUS.format(tdcUS_RD/fx)}</b></td><td class="muted">Aplicados en ${month}</td></tr>
-          <tr><td><b>Bonos recibidos</b></td><td class="right"><b>${fmtRD.format(bonoIn)}</b></td><td class="right">—</td><td class="muted">CCN + Combustible</td></tr>
-          <tr><td><b>Bonos consumidos</b></td><td class="right"><b>${fmtRD.format(bonoOut)}</b></td><td class="right">—</td><td class="muted">CCN + Combustible</td></tr>
-          <tr><td><b>Retiros cajero</b></td><td class="right"><b>${fmtRD.format(withdraw)}</b></td><td class="right">—</td><td class="muted">Banco → Efectivo</td></tr>
-          <tr><td><b>Neto (Ingresos − Gastos)</b></td><td class="right"><b>${fmtRD.format(income-expense)}</b></td><td class="right">—</td><td class="muted">Sin incluir pagos TDC</td></tr>
-        </tbody>
-      `;
-    }else{
-      const rows = items.map(m=>{
-        const usd = m.type==="TDC_PAY_US_RD" ? ` <span class="muted">(${fmtUS.format((Number(m.amountRD)||0)/fx)})</span>` : "";
-        return `
-          <tr>
-            <td><b>${m.date}</b></td>
-            <td>${typeLabel(m.type)}<div class="muted small">${escapeHtml(m.categoryName||"")}</div></td>
-            <td>${methodLabel(m.method)}<div class="muted small">${escapeHtml(m.ref||"")}</div></td>
-            <td class="right"><b>${fmtRD.format(Number(m.amountRD)||0)}</b>${usd}</td>
-            <td>${escapeHtml(m.note||"")}</td>
-          </tr>`;
-      }).join("");
-
-      const total = items.reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      $("rpTable").innerHTML = `
-        <thead><tr>
-          <th>Fecha aplicada</th><th>Tipo / Concepto</th><th>Método / Ref</th><th class="right">Monto</th><th>Nota</th>
-        </tr></thead>
-        <tbody>${rows || `<tr><td colspan="5" class="muted">No hay movimientos para este mes/filtro.</td></tr>`}</tbody>
-        <tfoot><tr><td colspan="5" class="right"><span class="muted">Total visible:</span> <b>${fmtRD.format(total)}</b></td></tr></tfoot>
-      `;
-    }
-  }
-
-  // --- Calendario quincenal ---
-  function buildCalendar(){
-    const months = monthsList(state.startMonth, Number(state.horizon)||10);
-    const fx = Number(state.fx)||66;
-    const cushionQ = Number(state.cushion)||0;
-
-    const rows = months.map(m=>{
-      const in15 = Number(state.inc15)||0;
-      const in30 = Number(state.inc30)||0;
-
-      const fixedMonthly = sumExpensesForMonth(m);
-      const expCasa = state.expenses.find(e=>e.id==="casa") || {amount:0, id:"casa"};
-      const house = getExpenseAmountForMonth(expCasa, m, ($("expenseMode").value==="month" ? "month" : "base"));
-      const otherFixed = Math.max(0, fixedMonthly - house);
-
-      const fixed15 = house + otherFixed/2;
-      const fixed30 = otherFixed/2;
-
-      const eff = effectiveTdcPaymentsForMonth(m);
-      const weight15 = in15/(in15+in30 || 1);
-
-      const payUS15 = Math.round((Number(eff.payUS_RD)||0) * weight15);
-      const payUS30 = (Number(eff.payUS_RD)||0) - payUS15;
-
-      const payRD15 = Math.round((Number(eff.payRD)||0) * weight15);
-      const payRD30 = (Number(eff.payRD)||0) - payRD15;
-
-      const rem15 = in15 - fixed15 - cushionQ - payUS15 - payRD15;
-      const rem30 = in30 - fixed30 - cushionQ - payUS30 - payRD30;
-
-      const pill = (v)=> v >= 0 ? `<span class="pill good">+${fmtRD.format(v)}</span>` : `<span class="pill bad">-${fmtRD.format(Math.abs(v))}</span>`;
-      const src = eff.source === "real" ? `<span class="pill good">REAL</span>` : `<span class="pill warn">PLAN</span>`;
-
-      return `
-        <tr>
-          <td><b>${m}</b><div class="small muted">${src}</div></td>
-          <td class="right">${fmtRD.format(in15)}</td>
-          <td class="right">${fmtRD.format(fixed15)}</td>
-          <td class="right">${fmtRD.format(cushionQ)}</td>
-          <td class="right">${fmtRD.format(payRD15)}</td>
-          <td class="right">${fmtRD.format(payUS15)} <span class="muted">(${fmtUS.format(payUS15/fx)})</span></td>
-          <td class="right">${pill(rem15)}</td>
-        </tr>
-        <tr>
-          <td class="muted">— Quincena 30</td>
-          <td class="right">${fmtRD.format(in30)}</td>
-          <td class="right">${fmtRD.format(fixed30)}</td>
-          <td class="right">${fmtRD.format(cushionQ)}</td>
-          <td class="right">${fmtRD.format(payRD30)}</td>
-          <td class="right">${fmtRD.format(payUS30)} <span class="muted">(${fmtUS.format(payUS30/fx)})</span></td>
-          <td class="right">${pill(rem30)}</td>
-        </tr>
-      `;
-    }).join("");
-
-    $("calendarTable").innerHTML = `
-      <thead><tr>
-        <th>Periodo</th><th class="right">Ingreso</th><th class="right">Fijos</th><th class="right">Colchón</th>
-        <th class="right">Pago TDC RD$</th><th class="right">Pago TDC US$ (RD$)</th><th class="right">Remanente</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    `;
-  }
-
-  // --- KPIs / alertas / chart ---
-  function classifyStatus(alerts){
-    if(alerts.some(a=>a.level==="bad")) return {label:"Riesgo", cls:"bad"};
-    if(alerts.some(a=>a.level==="warn")) return {label:"Atención", cls:"warn"};
-    return {label:"OK", cls:"good"};
-  }
-
-  function buildKPIs(series){
-    computeBalancesFromMovements();
-    const fx = Number(state.fx)||66;
-    const month = series[0]?.month || state.startMonth;
-
-    // Resumen mensual de movimientos (solo por mes actual seleccionado)
-    const monthItems = state.movements.filter(m=>mvMonth(m.date)===month);
-    const income = monthItems.filter(m=>m.type==="INCOME").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-    const expensePaid = monthItems.filter(m=>m.type==="EXPENSE").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-    const tdcPay = monthItems.filter(m=>m.type==="TDC_PAY_RD"||m.type==="TDC_PAY_US_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-
-    const cb = getCurrentDebtBalances();
-    const totalDebtRD = cb.curRD + cb.curUS*fx;
-
-    const fixed = sumExpensesForMonth(month);
-    const incomeMonthly = (Number(state.inc15)||0)+(Number(state.inc30)||0);
-    const cushionMonthly = (Number(state.cushion)||0)*2;
-
-    let monthsToZero = null;
-    for(let i=0;i<series.length;i++){ if(series[i].totalRD <= 0.01){ monthsToZero = i+1; break; } }
-
-    const k = [
-      {label:"Deuda total (RD$)", value: fmtRD.format(totalDebtRD), pill: totalDebtRD>0 ? "warn":"good", note:"Saldo actual (baja con pagos TDC)"},
-      {label:"Saldo Banco", value: fmtRD.format(state.balances.bank), pill: state.balances.bank>=0 ? "good":"bad", note:"Calculado por movimientos"},
-      {label:"Saldo Efectivo", value: fmtRD.format(state.balances.cash), pill: state.balances.cash>=0 ? "good":"bad", note:"Calculado por movimientos"},
-      {label:"Bonos (CCN+Fuel)", value: fmtRD.format(state.balances.ccn + state.balances.fuel), pill: (state.balances.ccn+state.balances.fuel)>=0 ? "good":"warn", note:`CCN ${fmtRD.format(state.balances.ccn)} • Fuel ${fmtRD.format(state.balances.fuel)}`},
-      {label:"Ingreso real (mes)", value: fmtRD.format(income), pill: income>0 ? "good":"warn", note:`Registrado en ${month}`},
-      {label:"Gasto pagado (mes)", value: fmtRD.format(expensePaid), pill: expensePaid<=income ? "good":"warn", note:"Solo gastos pagados (no TDC)"},
-      {label:"Pagos TDC (mes)", value: fmtRD.format(tdcPay), pill: tdcPay>0 ? "good":"warn", note:"Pagos reales registrados"},
-      {label:"Meses para cero", value: monthsToZero ? (monthsToZero+" meses") : "—", pill: monthsToZero && monthsToZero<=8 ? "good":"warn", note:"Según pagos efectivos"},
-    ];
-    $("kpis").innerHTML = k.map(x=>`
-      <div class="kpi">
-        <div class="l">
-          <span>${x.label}</span>
-          <span class="pill ${x.pill}">${x.pill==="good"?"OK":(x.pill==="warn"?"Atención":"Riesgo")}</span>
-        </div>
-        <div class="v">${x.value}</div>
-        <div class="small muted">${x.note}</div>
-      </div>
-    `).join("");
-
-    // Update balance fields on Ingresos tab
-    const setVal = (id, v)=>{ const el=$(id); if(el) el.value=v; };
-    setVal("balCCN", fmtRD.format(state.balances.ccn));
-    setVal("balFuel", fmtRD.format(state.balances.fuel));
-    setVal("balBank", fmtRD.format(state.balances.bank));
-    setVal("balCash", fmtRD.format(state.balances.cash));
-
-    // Update debt fields on Deudas tab
-    setVal("curDebtRD", fmtRD.format(cb.curRD));
-    setVal("curDebtUS", fmtUS.format(cb.curUS));
-  }
-
-  function buildAlerts(series){
-    const alerts = [];
-    const month = series[0]?.month || state.startMonth;
-    const incomeMonthly = (Number(state.inc15)||0)+(Number(state.inc30)||0);
-    const fixed = sumExpensesForMonth(month);
-    const cushionQ = Number(state.cushion)||0;
-    const cushionMonthly = cushionQ*2;
-
-    const eff = effectiveTdcPaymentsForMonth(month);
-    const payTdc = (Number(eff.payRD)||0) + (Number(eff.payUS_RD)||0);
-
-    if(cushionQ < 12000) alerts.push({level:"warn", title:"Colchón bajo", text:`Colchón quincenal: ${fmtRD.format(cushionQ)}. Recomendado: RD$ 12,000.`});
-    else alerts.push({level:"good", title:"Colchón protegido", text:`Colchón quincenal: ${fmtRD.format(cushionQ)}.`});
-
-    const avail = incomeMonthly - fixed - cushionMonthly;
-    if(avail < 0) alerts.push({level:"bad", title:"Presupuesto en rojo", text:"Tus fijos + colchón superan el ingreso estimado. Ajusta gastos o colchón."});
-    else if(payTdc > avail) alerts.push({level:"warn", title:"Pagos TDC altos vs disponible", text:`Pagos TDC (${fmtRD.format(payTdc)}) > disponible (${fmtRD.format(avail)}).`});
-    else alerts.push({level:"good", title:"Pagos TDC sostenibles", text:`Disponible: ${fmtRD.format(avail)}. Pagos TDC: ${fmtRD.format(payTdc)}.`});
-
-    const house = (state.expenses.find(x=>x.id==="casa")?.amount)||0;
-    const day = Number(state.houseDay)||15;
-    const latePct = Number(state.houseLatePct)||5;
-    alerts.push({level:"warn", title:"Casa: prioridad el día 15", text:`Paga RD$ ${house.toFixed(0)} el día ${day}. Mora ${latePct}% si pagas tarde.`});
-
-    const last = series.at(-1);
-    if(last && last.totalRD > 1) alerts.push({level:"warn", title:"No llegas a cero en el horizonte", text:"Aumenta pagos TDC o sube el horizonte (meses)."});
-    else alerts.push({level:"good", title:"Salida proyectada", text:"Con los pagos actuales, llegas a RD$0 dentro del horizonte."});
-
-    const st = classifyStatus(alerts);
-    $("statusText").textContent = st.label;
-    document.querySelector(".badge i").className = st.cls==="good" ? "i-good" : (st.cls==="warn" ? "i-warn" : "i-bad");
-
-    $("alerts").innerHTML = alerts.map(a=>`
-      <div class="alert ${a.level}">
-        <div class="dot"></div>
-        <div><b>${a.title}</b><p>${a.text}</p></div>
-      </div>
-    `).join("");
-  }
-
-  function drawChart(series){
-    const c = $("chart");
-    const dpr = window.devicePixelRatio || 1;
-    const w = c.clientWidth, h = c.clientHeight;
-    c.width = Math.floor(w*dpr); c.height = Math.floor(h*dpr);
-    const ctx = c.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.clearRect(0,0,w,h);
-
-    const pad = 18, plotW = w - pad*2, plotH = h - pad*2;
-    const values = series.map(x=>x.totalRD);
-    const maxV = Math.max(...values, 1);
-
-    ctx.strokeStyle = "rgba(15,23,42,.10)";
-    ctx.lineWidth = 1;
-    for(let i=0;i<=4;i++){
-      const y = pad + plotH*(i/4);
-      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(pad+plotW, y); ctx.stroke();
-    }
-
-    ctx.strokeStyle = "rgba(37,99,235,.95)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    series.forEach((p, i)=>{
-      const x = pad + plotW*(i/(series.length-1 || 1));
-      const y = pad + plotH*(1 - (p.totalRD/maxV));
-      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    });
-    ctx.stroke();
-
-    const grad = ctx.createLinearGradient(0,pad,0,pad+plotH);
-    grad.addColorStop(0,"rgba(37,99,235,.20)");
-    grad.addColorStop(1,"rgba(37,99,235,0)");
-    ctx.fillStyle = grad;
-    ctx.lineTo(pad+plotW, pad+plotH);
-    ctx.lineTo(pad, pad+plotH);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(15,23,42,.78)";
-    ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
-    ctx.fillText("Deuda total estimada (RD$)", pad, 14);
-    ctx.fillStyle = "rgba(15,23,42,.55)";
-    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
-    ctx.fillText(fmtRD.format(values[0]||0) + "  →  " + fmtRD.format(values.at(-1)||0), pad, h-6);
-  }
-
-  // --- Export CSV (reporte actual) ---
-  function csvEscape(s){
-    const t = String(s ?? "");
-    if(/[,"\n]/.test(t)) return '"' + t.replace(/"/g,'""') + '"';
-    return t;
-  }
-  function exportCSV(){
-    const view = $("rpView").value;
-    const month = $("rpMonth").value;
-    const fx = Number(state.fx)||66;
-
-    const lines = [];
-    if(view==="month"){
-      // export same as table
-      const items = state.movements.filter(m=>mvMonth(m.date)===month);
-      const income = items.filter(m=>m.type==="INCOME").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const expense = items.filter(m=>m.type==="EXPENSE").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const tdcRD = items.filter(m=>m.type==="TDC_PAY_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const tdcUS_RD = items.filter(m=>m.type==="TDC_PAY_US_RD").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const bonoIn = items.filter(m=>m.type==="BONO_CCN_IN"||m.type==="BONO_FUEL_IN").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-      const bonoOut = items.filter(m=>m.type==="BONO_CCN_OUT"||m.type==="BONO_FUEL_OUT").reduce((a,m)=>a+(Number(m.amountRD)||0),0);
-
-      lines.push(["Mes","Concepto","Monto_RD","Equiv_USD","Nota"].join(","));
-      lines.push([month,"Ingresos",income,"","INCOME"].join(","));
-      lines.push([month,"Gastos pagados",expense,"","EXPENSE"].join(","));
-      lines.push([month,"Pagos TDC RD$",tdcRD,"","TDC"].join(","));
-      lines.push([month,"Pagos TDC US$ (en RD$)",tdcUS_RD,(tdcUS_RD/fx).toFixed(2),"TDC"].join(","));
-      lines.push([month,"Bonos recibidos",bonoIn,"","BONO"].join(","));
-      lines.push([month,"Bonos consumidos",bonoOut,"","BONO"].join(","));
-      lines.push([month,"Neto (Ingresos-Gastos)",income-expense,"",""].join(","));
-    }else{
-      const items = state.movements.filter(m=>mvMonth(m.date)===month).sort((a,b)=> (a.date||"").localeCompare(b.date||""));
-      lines.push(["Fecha","Mes","Tipo","Concepto","Metodo","Monto_RD","Equiv_USD","Referencia","Nota"].join(","));
-      items.forEach(m=>{
-        const usd = m.type==="TDC_PAY_US_RD" ? ((Number(m.amountRD)||0)/fx).toFixed(2) : "";
-        lines.push([
-          m.date, month, typeLabel(m.type), csvEscape(m.categoryName||""), methodLabel(m.method),
-          Number(m.amountRD)||0, usd, csvEscape(m.ref||""), csvEscape(m.note||"")
-        ].join(","));
-      });
-    }
-
-    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `reporte_finanzas_360_${month}_${view}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  // --- Recalc ---
-  function recalcAll(){
-    const series = calcProjection();
-    buildKPIs(series);
-    buildAlerts(series);
-    drawChart(series);
-    buildCalendar();
-    buildRecentMovements();
-    buildReport();
-  }
-
-  // --- Init UI bindings ---
-  function bindTabs(){
-    document.querySelectorAll(".tab").forEach(t=>{
-      t.addEventListener("click", ()=>{
-        document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-        t.classList.add("active");
-        const id = t.getAttribute("data-tab");
-        ["tab1","tab2","tab3","tab4","tab5","tab6"].forEach(k=> $(k).classList.toggle("hidden", k!==id));
-      });
-    });
-  }
-
-  function bindInputs(){
-    $("fx").value = state.fx;
-    $("cushion").value = state.cushion;
-    $("houseDay").value = state.houseDay;
-    $("houseLatePct").value = state.houseLatePct;
-    $("startMonth").value = state.startMonth;
-    $("horizon").value = state.horizon;
-
-    $("inc15").value = state.inc15;
-    $("inc30").value = state.inc30;
-    $("ccnMonthly").value = state.ccnMonthly;
-
-    $("debtRD").value = state.debts.rd;
-    $("debtUS").value = state.debts.us;
-    $("aprRD").value = state.debts.aprRD;
-    $("aprUS").value = state.debts.aprUS;
-
-    const on = (id, fn)=> $(id).addEventListener("input", fn);
-    on("fx", ()=>{ state.fx = Number($("fx").value)||66; save(); recalcAll(); });
-    on("cushion", ()=>{ state.cushion = Number($("cushion").value)||0; save(); recalcAll(); });
-    on("houseDay", ()=>{ state.houseDay = Number($("houseDay").value)||15; save(); recalcAll(); });
-    on("houseLatePct", ()=>{ state.houseLatePct = Number($("houseLatePct").value)||0; save(); recalcAll(); });
-    on("startMonth", ()=>{ state.startMonth = $("startMonth").value || state.startMonth; save(); refresh(); });
-    on("horizon", ()=>{ state.horizon = Number($("horizon").value)||10; save(); refresh(); });
-
-    on("inc15", ()=>{ state.inc15 = Number($("inc15").value)||0; save(); recalcAll(); });
-    on("inc30", ()=>{ state.inc30 = Number($("inc30").value)||0; save(); recalcAll(); });
-    on("ccnMonthly", ()=>{ state.ccnMonthly = Number($("ccnMonthly").value)||0; save(); recalcAll(); });
-
-    on("debtRD", ()=>{ state.debts.rd = Number($("debtRD").value)||0; save(); recalcAll(); });
-    on("debtUS", ()=>{ state.debts.us = Number($("debtUS").value)||0; save(); recalcAll(); });
-    on("aprRD", ()=>{ state.debts.aprRD = Number($("aprRD").value)||0; save(); recalcAll(); });
-    on("aprUS", ()=>{ state.debts.aprUS = Number($("aprUS").value)||0; save(); recalcAll(); });
-
-    $("expenseMode").addEventListener("change", ()=>{ save(); buildExpenseTable(); recalcAll(); });
-    $("expenseMonth").addEventListener("change", ()=>{ save(); buildExpenseTable(); recalcAll(); });
-
-    $("rpView").addEventListener("change", ()=> buildReport());
-    $("rpMonth").addEventListener("change", ()=> buildReport());
-  }
-
-  function bindButtons(){
-    $("btnRecalc").addEventListener("click", ()=> recalcAll());
-
-    $("btnAddMonth").addEventListener("click", ()=>{
-      state.horizon = Math.min(36, (Number(state.horizon)||10) + 1);
-      $("horizon").value = state.horizon;
-      save(); refresh();
-    });
-
-    $("btnAddExpense").addEventListener("click", ()=>{
-      const id = "g_"+Math.random().toString(16).slice(2,8);
-      state.expenses.push({id, name:"Nuevo gasto", amount:0, note:"", tag:"Varios"});
-      save(); buildExpenseTable(); buildCategoryOptions(); recalcAll();
-    });
-
-    $("btnPauseStreaming").addEventListener("click", ()=>{
-      const keys = ["netflix","disney","spotify","paramount","canva"];
-      const mode = $("expenseMode").value;
-      const month = $("expenseMonth").value || state.startMonth;
-      state.expenses.forEach(e=>{
-        const n = (e.name||"").toLowerCase();
-        if(keys.some(t=>n.includes(t))){
-          if(mode==="month") setExpenseForMonth(e.id, month, 0);
-          else e.amount = 0;
-        }
-      });
-      save(); buildExpenseTable(); recalcAll();
-    });
-
-    $("btnAutoPlan").addEventListener("click", ()=> autoPlan());
-
-    $("btnExport").addEventListener("click", ()=>{
-      const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "finanzas_360_backup.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-
-    $("btnImport").addEventListener("click", ()=> $("fileImport").click());
-    $("fileImport").addEventListener("change", async (e)=>{
-      const file = e.target.files?.[0];
-      if(!file) return;
+  timer.running=true;
+  $("#startStop").textContent = "⏸ Pausa";
+  timer.t = setInterval(()=>{
+    timer.left--;
+    if(timer.left<=0){
+      timer.left=0;
+      paintClock();
+      clearInterval(timer.t);
+      timer.running=false;
+      $("#startStop").textContent = "▶︎ Iniciar";
+      try{ navigator.vibrate?.(200); }catch(e){}
+      // tiny beep
       try{
-        const txt = await file.text();
-        const obj = JSON.parse(txt);
-        state = deepMerge(defaults(), obj);
-        save(); init();
-      }catch(err){
-        alert("No se pudo importar. Usa un JSON exportado desde esta app.");
-      }finally{ e.target.value = ""; }
-    });
-
-    $("btnExportCSV").addEventListener("click", ()=> exportCSV());
-
-    $("btnReset").addEventListener("click", ()=>{
-      if(!confirm("Esto borrará tu información guardada en este navegador. ¿Seguro?")) return;
-      localStorage.removeItem(LS_KEY);
-      state = defaults(); save(); init();
-    });
-
-    $("btnHelp").addEventListener("click", ()=> $("modal").classList.remove("hidden"));
-      $("btnSync") && $("btnSync").addEventListener("click", ()=> syncFromSheets());
-    $("btnClose").addEventListener("click", ()=> $("modal").classList.add("hidden"));
-    $("modal").addEventListener("click", (e)=>{ if(e.target.id==="modal") $("modal").classList.add("hidden"); });
-
-    document.querySelectorAll(".chip").forEach(ch=>{
-      ch.addEventListener("click", ()=> setChipActive(ch.getAttribute("data-filter")));
-    });
-
-    $("btnClearTdcPays").addEventListener("click", ()=>{
-      if(!confirm("Borrar pagos TDC registrados (RD$ y US$). ¿Seguro?")) return;
-      state.movements = state.movements.filter(m => !(m.type==="TDC_PAY_RD" || m.type==="TDC_PAY_US_RD"));
-      save(); recalcAll();
-    });
-
-    // Registrar movimiento
-    $("btnAddMv").addEventListener("click", ()=>{
-      const date = $("mvDate").value
-      // Asignar ID/origen para sincronización multi-PC
-      const mvId = (crypto?.randomUUID ? crypto.randomUUID() : ("mv_"+Date.now().toString(16)+"_"+Math.random().toString(16).slice(2)));
-      const mvOrigen = "FIN360_" + getDeviceId();;
-      const type = $("mvType").value;
-      const amountRD = Number($("mvAmount").value)||0;
-      const categoryId = $("mvCategory").value || "";
-      const method = $("mvMethod").value;
-      const ref = $("mvRef").value || "";
-      const note = $("mvNote").value || "";
-
-      if(!date){ alert("Selecciona la fecha aplicada."); return; }
-      if(amountRD <= 0){ alert("El monto debe ser mayor que 0."); return; }
-
-      // Derivar categoryName
-      let categoryName = "";
-      const exp = state.expenses.find(e=>e.id===categoryId);
-      if(exp) categoryName = exp.name;
-      else {
-        const opt = $("mvCategory").querySelector(`option[value="${CSS.escape(categoryId)}"]`);
-        categoryName = opt ? opt.textContent : categoryId;
-      }
-
-      // En tipos específicos, fuerza método coherente
-      let finalMethod = method;
-      if(type.startsWith("BONO_CCN")) finalMethod = "BONO_CCN";
-      if(type.startsWith("BONO_FUEL")) finalMethod = "BONO_FUEL";
-
-      const id = "m_" + Math.random().toString(16).slice(2) + "_" + Date.now();
-      addMovement({id, date, type, categoryId, categoryName, method: finalMethod, amountRD, ref, note});
-
-      // limpiar
-      $("mvAmount").value = "0";
-      $("mvRef").value = "";
-      $("mvNote").value = "";
-      recalcAll();
-    });
-
-    $("btnClearMv").addEventListener("click", ()=>{
-      $("mvAmount").value = "0";
-      $("mvRef").value = "";
-      $("mvNote").value = "";
-    });
-  }
-
-  function initMovementForm(){
-    $("mvDate").value = new Date().toISOString().slice(0,10);
-    $("mvType").value = "EXPENSE";
-    $("mvMethod").value = "BANCO";
-    $("mvAmount").value = "0";
-  }
-
-  function refresh(){
-    buildExpenseMonthOptions();
-    buildExpenseTable();
-    buildCategoryOptions();
-    buildRecentMovements();
-    buildReport();
-    buildCalendar();
-    recalcAll();
-  }
-
-  function init(){
-    bindTabs();
-    bindInputs();
-    bindButtons();
-    initMovementForm();
-    refresh();
-  }
-
-  init();
-  window.addEventListener("resize", ()=> recalcAll());
-})();
+        const ctx = new (window.AudioContext||window.webkitAudioContext)();
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.type="sine"; o.frequency.value=880; g.gain.value=0.07;
+        o.connect(g); g.connect(ctx.destination); o.start();
+        setTimeout(()=>{o.stop(); ctx.close();}, 180);
+      }catch(e){}
+      return;
+    }
+    paintClock();
+  }, 1000);
+}
 </script>
 </body>
 </html>
